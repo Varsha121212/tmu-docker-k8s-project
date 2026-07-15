@@ -1,0 +1,10 @@
+.venv
+__pycache__
+**/__pycache__
+.pytest_cache
+.import_linter_cache
+tests
+.env
+.env.example
+*.pyc
+.git

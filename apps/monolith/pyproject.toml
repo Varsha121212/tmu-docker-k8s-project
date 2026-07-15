@@ -1,0 +1,92 @@
+[project]
+name = "bookstore-monolith"
+version = "0.1.0"
+description = "Stage 1 modular monolith for the CN8001 Online Bookstore project"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "email-validator>=2.2",
+    "pydantic-settings>=2.6",
+    "sqlalchemy>=2.0",
+    "alembic>=1.14",
+    "psycopg[binary]>=3.2",
+    "argon2-cffi>=23.1",
+    "pyjwt>=2.9",
+    "redis>=5.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
+    "import-linter>=2.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.importlinter]
+root_package = "app"
+
+[[tool.importlinter.contracts]]
+name = "Identity internal package is private to the identity module"
+type = "forbidden"
+source_modules = ["app.modules.catalog", "app.modules.inventory", "app.modules.cart", "app.modules.order"]
+forbidden_modules = ["app.modules.identity.internal"]
+# A module's own service.py is allowed to use its own internal package; these edges are
+# the sanctioned exception so a transitive call (e.g. cart.service -> identity.service)
+# doesn't falsely trip this contract just because identity.service itself uses identity.internal.
+ignore_imports = [
+    "app.modules.identity.service -> app.modules.identity.internal.repository",
+    "app.modules.identity.service -> app.modules.identity.internal.models",
+]
+
+[[tool.importlinter.contracts]]
+name = "Catalog internal package is private to the catalog module"
+type = "forbidden"
+source_modules = ["app.modules.identity", "app.modules.inventory", "app.modules.cart", "app.modules.order"]
+forbidden_modules = ["app.modules.catalog.internal"]
+ignore_imports = [
+    "app.modules.catalog.service -> app.modules.catalog.internal.repository",
+    "app.modules.catalog.service -> app.modules.catalog.internal.models",
+]
+
+[[tool.importlinter.contracts]]
+name = "Inventory internal package is private to the inventory module"
+type = "forbidden"
+source_modules = ["app.modules.identity", "app.modules.catalog", "app.modules.cart", "app.modules.order"]
+forbidden_modules = ["app.modules.inventory.internal"]
+ignore_imports = [
+    "app.modules.inventory.service -> app.modules.inventory.internal.repository",
+    "app.modules.inventory.service -> app.modules.inventory.internal.models",
+]
+
+[[tool.importlinter.contracts]]
+name = "Cart internal package is private to the cart module"
+type = "forbidden"
+source_modules = ["app.modules.identity", "app.modules.catalog", "app.modules.inventory", "app.modules.order"]
+forbidden_modules = ["app.modules.cart.internal"]
+ignore_imports = [
+    "app.modules.cart.service -> app.modules.cart.internal.repository",
+]
+
+[[tool.importlinter.contracts]]
+name = "Order internal package is private to the order module"
+type = "forbidden"
+source_modules = ["app.modules.identity", "app.modules.catalog", "app.modules.inventory", "app.modules.cart"]
+forbidden_modules = ["app.modules.order.internal"]
+ignore_imports = [
+    "app.modules.order.service -> app.modules.order.internal.repository",
+    "app.modules.order.service -> app.modules.order.internal.models",
+]

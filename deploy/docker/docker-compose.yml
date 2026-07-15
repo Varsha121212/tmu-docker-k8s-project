@@ -1,0 +1,214 @@
+name: bookstore
+
+# Stage 2 Compose stack (SDD section 9): frontend, five microservices,
+# PostgreSQL, Redis, all on one private bridge network, brought up with
+# health-check-based dependency ordering rather than fixed sleeps (SDD 9.3).
+# Compose DNS is bare service names (SDD 11.2) - every *_SERVICE_URL below
+# matches the service name defined here, not a "-service" suffix (that's the
+# Kubernetes/Stage 3 convention).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      IDENTITY_MIGRATOR_PASSWORD: ${IDENTITY_MIGRATOR_PASSWORD}
+      IDENTITY_APP_PASSWORD: ${IDENTITY_APP_PASSWORD}
+      CATALOG_MIGRATOR_PASSWORD: ${CATALOG_MIGRATOR_PASSWORD}
+      CATALOG_APP_PASSWORD: ${CATALOG_APP_PASSWORD}
+      INVENTORY_MIGRATOR_PASSWORD: ${INVENTORY_MIGRATOR_PASSWORD}
+      INVENTORY_APP_PASSWORD: ${INVENTORY_APP_PASSWORD}
+      ORDER_MIGRATOR_PASSWORD: ${ORDER_MIGRATOR_PASSWORD}
+      ORDER_APP_PASSWORD: ${ORDER_APP_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init-db-roles.sh:/docker-entrypoint-initdb.d/init-db-roles.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [bookstore-net]
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [bookstore-net]
+
+  # --- One-shot migration jobs: run to completion before their service starts. ---
+
+  migrate-identity:
+    build: ../../apps/services/identity
+    image: bookstore/identity:${IMAGE_TAG}
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://identity_app:${IDENTITY_APP_PASSWORD}@postgres:5432/bookstore
+      MIGRATION_DATABASE_URL: postgresql+psycopg://identity_migrator:${IDENTITY_MIGRATOR_PASSWORD}@postgres:5432/bookstore
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [bookstore-net]
+
+  migrate-catalog:
+    build: ../../apps/services/catalog
+    image: bookstore/catalog:${IMAGE_TAG}
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://catalog_app:${CATALOG_APP_PASSWORD}@postgres:5432/bookstore
+      MIGRATION_DATABASE_URL: postgresql+psycopg://catalog_migrator:${CATALOG_MIGRATOR_PASSWORD}@postgres:5432/bookstore
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [bookstore-net]
+
+  migrate-inventory:
+    build: ../../apps/services/inventory
+    image: bookstore/inventory:${IMAGE_TAG}
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://inventory_app:${INVENTORY_APP_PASSWORD}@postgres:5432/bookstore
+      MIGRATION_DATABASE_URL: postgresql+psycopg://inventory_migrator:${INVENTORY_MIGRATOR_PASSWORD}@postgres:5432/bookstore
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [bookstore-net]
+
+  migrate-order:
+    build: ../../apps/services/order
+    image: bookstore/order:${IMAGE_TAG}
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://order_app:${ORDER_APP_PASSWORD}@postgres:5432/bookstore
+      MIGRATION_DATABASE_URL: postgresql+psycopg://order_migrator:${ORDER_MIGRATOR_PASSWORD}@postgres:5432/bookstore
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [bookstore-net]
+
+  # --- Application services ---
+
+  identity:
+    build: ../../apps/services/identity
+    image: bookstore/identity:${IMAGE_TAG}
+    environment:
+      DATABASE_URL: postgresql+psycopg://identity_app:${IDENTITY_APP_PASSWORD}@postgres:5432/bookstore
+      MIGRATION_DATABASE_URL: postgresql+psycopg://identity_migrator:${IDENTITY_MIGRATOR_PASSWORD}@postgres:5432/bookstore
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      postgres: { condition: service_healthy }
+      migrate-identity: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/auth/health/ready', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks: [bookstore-net]
+
+  catalog:
+    build: ../../apps/services/catalog
+    image: bookstore/catalog:${IMAGE_TAG}
+    environment:
+      DATABASE_URL: postgresql+psycopg://catalog_app:${CATALOG_APP_PASSWORD}@postgres:5432/bookstore
+      MIGRATION_DATABASE_URL: postgresql+psycopg://catalog_migrator:${CATALOG_MIGRATOR_PASSWORD}@postgres:5432/bookstore
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      postgres: { condition: service_healthy }
+      migrate-catalog: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/books/health/ready', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks: [bookstore-net]
+
+  inventory:
+    build: ../../apps/services/inventory
+    image: bookstore/inventory:${IMAGE_TAG}
+    environment:
+      DATABASE_URL: postgresql+psycopg://inventory_app:${INVENTORY_APP_PASSWORD}@postgres:5432/bookstore
+      MIGRATION_DATABASE_URL: postgresql+psycopg://inventory_migrator:${INVENTORY_MIGRATOR_PASSWORD}@postgres:5432/bookstore
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+    depends_on:
+      postgres: { condition: service_healthy }
+      migrate-inventory: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/inventory/health/ready', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks: [bookstore-net]
+
+  cart:
+    build: ../../apps/services/cart
+    image: bookstore/cart:${IMAGE_TAG}
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET}
+      CATALOG_SERVICE_URL: http://catalog:8000
+    depends_on:
+      redis: { condition: service_healthy }
+      catalog: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/cart/health/ready', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks: [bookstore-net]
+
+  order:
+    build: ../../apps/services/order
+    image: bookstore/order:${IMAGE_TAG}
+    environment:
+      DATABASE_URL: postgresql+psycopg://order_app:${ORDER_APP_PASSWORD}@postgres:5432/bookstore
+      MIGRATION_DATABASE_URL: postgresql+psycopg://order_migrator:${ORDER_MIGRATOR_PASSWORD}@postgres:5432/bookstore
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+      CART_SERVICE_URL: http://cart:8000
+      INVENTORY_SERVICE_URL: http://inventory:8000
+    depends_on:
+      postgres: { condition: service_healthy }
+      migrate-order: { condition: service_completed_successfully }
+      cart: { condition: service_healthy }
+      inventory: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/orders/health/ready', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks: [bookstore-net]
+
+  frontend:
+    build: ../../apps/frontend
+    image: bookstore/frontend:${IMAGE_TAG}
+    ports:
+      - "80:8080"
+    depends_on:
+      identity: { condition: service_healthy }
+      catalog: { condition: service_healthy }
+      inventory: { condition: service_healthy }
+      cart: { condition: service_healthy }
+      order: { condition: service_healthy }
+    networks: [bookstore-net]
+
+networks:
+  bookstore-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:

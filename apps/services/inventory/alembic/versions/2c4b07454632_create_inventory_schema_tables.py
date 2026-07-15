@@ -1,0 +1,62 @@
+"""create inventory schema tables
+
+Revision ID: 2c4b07454632
+Revises:
+Create Date: 2026-07-14 23:14:13.583206
+
+"""
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+
+
+# revision identifiers, used by Alembic.
+revision: str = '2c4b07454632'
+down_revision: Union[str, Sequence[str], None] = None
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    """Upgrade schema."""
+    op.create_table('reservations',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('book_id', sa.UUID(), nullable=False),
+    sa.Column('quantity', sa.Integer(), nullable=False),
+    sa.Column('idempotency_key', sa.String(length=200), nullable=False),
+    sa.Column('status', sa.String(length=20), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('idempotency_key'),
+    schema='inventory'
+    )
+    op.create_index(op.f('ix_inventory_reservations_book_id'), 'reservations', ['book_id'], unique=False, schema='inventory')
+    op.create_table('stock',
+    sa.Column('book_id', sa.UUID(), nullable=False),
+    sa.Column('available_qty', sa.Integer(), nullable=False),
+    sa.Column('version', sa.Integer(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
+    sa.PrimaryKeyConstraint('book_id'),
+    schema='inventory'
+    )
+    op.create_table('stock_movements',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('book_id', sa.UUID(), nullable=False),
+    sa.Column('delta', sa.Integer(), nullable=False),
+    sa.Column('reason', sa.String(length=20), nullable=False),
+    sa.Column('reference_id', sa.UUID(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.PrimaryKeyConstraint('id'),
+    schema='inventory'
+    )
+    op.create_index(op.f('ix_inventory_stock_movements_book_id'), 'stock_movements', ['book_id'], unique=False, schema='inventory')
+
+
+def downgrade() -> None:
+    """Downgrade schema."""
+    op.drop_index(op.f('ix_inventory_stock_movements_book_id'), table_name='stock_movements', schema='inventory')
+    op.drop_table('stock_movements', schema='inventory')
+    op.drop_table('stock', schema='inventory')
+    op.drop_index(op.f('ix_inventory_reservations_book_id'), table_name='reservations', schema='inventory')
+    op.drop_table('reservations', schema='inventory')

@@ -1,0 +1,53 @@
+"""create catalog authors and books tables
+
+Revision ID: 0ac3e93a0a9e
+Revises:
+Create Date: 2026-07-14 18:44:00.088041
+
+"""
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+
+
+# revision identifiers, used by Alembic.
+revision: str = '0ac3e93a0a9e'
+down_revision: Union[str, Sequence[str], None] = None
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    """Upgrade schema."""
+    op.create_table('authors',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('name', sa.String(length=200), nullable=False),
+    sa.PrimaryKeyConstraint('id'),
+    schema='catalog'
+    )
+    op.create_index(op.f('ix_catalog_authors_name'), 'authors', ['name'], unique=False, schema='catalog')
+    op.create_table('books',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('isbn', sa.String(length=20), nullable=True),
+    sa.Column('title', sa.String(length=300), nullable=False),
+    sa.Column('author_id', sa.UUID(), nullable=False),
+    sa.Column('category', sa.String(length=100), nullable=False),
+    sa.Column('price', sa.Numeric(precision=10, scale=2), nullable=False),
+    sa.Column('active', sa.Boolean(), nullable=False),
+    sa.ForeignKeyConstraint(['author_id'], ['catalog.authors.id'], ),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('isbn'),
+    schema='catalog'
+    )
+    op.create_index(op.f('ix_catalog_books_category'), 'books', ['category'], unique=False, schema='catalog')
+    op.create_index(op.f('ix_catalog_books_title'), 'books', ['title'], unique=False, schema='catalog')
+
+
+def downgrade() -> None:
+    """Downgrade schema."""
+    op.drop_index(op.f('ix_catalog_books_title'), table_name='books', schema='catalog')
+    op.drop_index(op.f('ix_catalog_books_category'), table_name='books', schema='catalog')
+    op.drop_table('books', schema='catalog')
+    op.drop_index(op.f('ix_catalog_authors_name'), table_name='authors', schema='catalog')
+    op.drop_table('authors', schema='catalog')

@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Fraunces", "Georgia", serif;
+  --font-body: "Work Sans", "Helvetica Neue", Arial, sans-serif;
+
+  --color-paper: #f5f3fc;
+  --color-paper-dim: #ffffff;
+  --color-paper-line: #e3ddf5;
+  --color-ink: #2a2440;
+  --color-ink-soft: #6b6280;
+  --color-primary: #6d4fc4;
+  --color-primary-dark: #55399c;
+  --color-accent: #c0569e;
+  --color-success: #2f8f6b;
+  --color-danger: #c4485b;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    min-height: 100vh;
+    margin: 0;
+    background-color: var(--color-paper);
+    background-image:
+      radial-gradient(circle at 12% 8%, rgb(109 79 196 / 10%), transparent 42%),
+      radial-gradient(circle at 88% 92%, rgb(192 86 158 / 8%), transparent 46%);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    font-synthesis: none;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
