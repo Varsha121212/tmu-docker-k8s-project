@@ -1,0 +1,13 @@
+# Local dev convenience only - NOT part of the intended network design (SDD
+# 11.3: "No public route exposes PostgreSQL, Redis..."). Docker Compose picks
+# this file up automatically alongside docker-compose.yml, merging it in, so
+# no extra flag is needed. Delete this file (or comment out the ports line)
+# before deploying to the actual VM/Kubernetes stages.
+services:
+  postgres:
+    # Host port 5433, not 5432 - your laptop already has native Postgres
+    # bound to 5432 (Period 1's local dev setup). The container's internal
+    # port stays 5432; other services still reach it at postgres:5432 over
+    # the Compose network, unaffected by this host-side mapping.
+    ports:
+      - "5433:5432"

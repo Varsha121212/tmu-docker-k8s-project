@@ -95,6 +95,38 @@ services:
       postgres: { condition: service_healthy }
     networks: [bookstore-net]
 
+  # --- One-shot seed jobs: repeatable/idempotent demo data (US-CAT-04), run
+  # after their schema exists. seed-inventory reads the book list from
+  # catalog-service over HTTP rather than querying Catalog's schema directly
+  # (SDD 6.1) - the same boundary every other cross-service call respects. ---
+
+  seed-catalog:
+    build: ../../apps/services/catalog
+    image: bookstore/catalog:${IMAGE_TAG}
+    command: ["python", "-m", "scripts.seed_catalog"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://catalog_app:${CATALOG_APP_PASSWORD}@postgres:5432/bookstore
+      MIGRATION_DATABASE_URL: postgresql+psycopg://catalog_migrator:${CATALOG_MIGRATOR_PASSWORD}@postgres:5432/bookstore
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      migrate-catalog: { condition: service_completed_successfully }
+    networks: [bookstore-net]
+
+  seed-inventory:
+    build: ../../apps/services/inventory
+    image: bookstore/inventory:${IMAGE_TAG}
+    command: ["python", "-m", "scripts.seed_stock"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://inventory_app:${INVENTORY_APP_PASSWORD}@postgres:5432/bookstore
+      MIGRATION_DATABASE_URL: postgresql+psycopg://inventory_migrator:${INVENTORY_MIGRATOR_PASSWORD}@postgres:5432/bookstore
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+      CATALOG_SERVICE_URL: http://catalog:8000
+    depends_on:
+      migrate-inventory: { condition: service_completed_successfully }
+      catalog: { condition: service_healthy }
+      seed-catalog: { condition: service_completed_successfully }
+    networks: [bookstore-net]
+
   # --- Application services ---
 
   identity:
@@ -203,6 +235,8 @@ services:
       inventory: { condition: service_healthy }
       cart: { condition: service_healthy }
       order: { condition: service_healthy }
+      seed-catalog: { condition: service_completed_successfully }
+      seed-inventory: { condition: service_completed_successfully }
     networks: [bookstore-net]
 
 networks:
