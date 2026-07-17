@@ -14,7 +14,8 @@ export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const justRegistered = Boolean((location.state as { registered?: boolean } | null)?.registered);
+  const locationState = location.state as { registered?: boolean; from?: string } | null;
+  const justRegistered = Boolean(locationState?.registered);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -22,7 +23,7 @@ export function LoginPage() {
     setSubmitting(true);
     try {
       await login(email, password);
-      await navigate("/profile");
+      await navigate(locationState?.from ?? "/profile");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Login failed. Please try again.");
     } finally {

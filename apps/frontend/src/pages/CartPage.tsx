@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ApiError } from "../lib/api";
+import { randomUUID } from "../lib/uuid";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { checkout } from "../features/order/api";
@@ -14,7 +15,7 @@ export function CartPage() {
   // Persists across retries within this page visit: if checkout fails and the customer
   // clicks "Place order" again, the retry reuses the same key (US-ORD-04) instead of
   // risking a duplicate order from what looks like a fresh request.
-  const [idempotencyKey] = useState(() => crypto.randomUUID());
+  const [idempotencyKey] = useState(() => randomUUID());
 
   async function handleQuantityChange(bookId: string, nextQuantity: number) {
     setError(null);
@@ -35,6 +36,7 @@ export function CartPage() {
     setPlacingOrder(true);
     try {
       const order = await checkout(token, idempotencyKey);
+      await refresh();
       await navigate(`/orders/${order.id}`, { state: { justPlaced: true } });
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {

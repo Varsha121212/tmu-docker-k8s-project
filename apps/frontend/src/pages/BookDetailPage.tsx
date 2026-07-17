@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { getBook } from "../features/catalog/api";
 import { getCoverGradient } from "../lib/coverPlaceholder";
 import { ApiError } from "../lib/api";
@@ -18,6 +18,7 @@ export function BookDetailPage() {
   const { token } = useAuth();
   const { addItem } = useCart();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     if (!bookId) return;
@@ -37,7 +38,7 @@ export function BookDetailPage() {
   async function handleAddToCart() {
     if (!book) return;
     if (!token) {
-      await navigate("/login");
+      await navigate("/login", { state: { from: location.pathname } });
       return;
     }
     setError(null);
