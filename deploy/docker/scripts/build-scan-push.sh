@@ -13,7 +13,11 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 REGISTRY="localhost:5000"
-SHORT_COMMIT="$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo "nogit")"
+if ! SHORT_COMMIT="$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>&1)"; then
+    echo "WARNING: git rev-parse failed, tagging with 'nogit' instead of a commit hash:" >&2
+    echo "  $SHORT_COMMIT" >&2
+    SHORT_COMMIT="nogit"
+fi
 EVIDENCE_DIR="$ROOT_DIR/evidence/trivy"
 mkdir -p "$EVIDENCE_DIR"
 

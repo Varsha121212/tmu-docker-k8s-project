@@ -121,3 +121,138 @@ real local Postgres database without leaving data behind.
 - **Docker Desktop** is not required for Stage 1 (bare VM / native local dev) — it becomes
   relevant starting in Period 2 of the sprint plan, when the monolith is decomposed into
   containerized microservices.
+
+## Stage 2 — Docker Compose (microservices)
+
+Period 2 of the sprint plan decomposes the monolith into five standalone services
+(`apps/services/{identity,catalog,inventory,cart,order}`) plus the frontend, all built as
+containers and run together via `deploy/docker/docker-compose.yml`. This section covers the
+local registry, Trivy scanning, and the build/scan/push workflow — all run from **Git Bash**,
+since the scripts under `deploy/docker/scripts/` are bash, not PowerShell/cmd.
+
+### Prerequisites
+
+- **Docker Desktop**, running, with the Docker Engine reachable from Git Bash (`docker ps`
+  should succeed with no extra setup — Docker Desktop on Windows adds `docker` to `PATH`
+  automatically).
+- **Git Bash** (ships with Git for Windows) — used to run every script in this section. Running
+  them from PowerShell or cmd.exe will not work directly, since they're POSIX shell scripts.
+- **Trivy**, for image vulnerability scanning (see install steps below).
+
+### Installing Trivy on Windows
+
+Trivy isn't bundled with Docker Desktop and has to be installed separately. Either of these
+work; both put `trivy` on `PATH` for new shells:
+
+```sh
+# via winget
+winget install AquaSecurity.Trivy
+
+# or via Chocolatey
+choco install trivy
+```
+
+After installing, **close and reopen Git Bash** so the updated `PATH` takes effect, then confirm:
+
+```sh
+trivy --version
+```
+
+### Starting the local registry
+
+`deploy/docker/scripts/start-registry.sh` starts a plain `registry:2` container bound to
+`localhost:5000`, used for the build → scan → push workflow below (a stand-in for the eventual
+dedicated registry VM per the PMP resource plan — this one is explicitly local-only, per SDD 9.1).
+It's idempotent: safe to run every time, it no-ops if the registry is already running.
+
+```sh
+bash deploy/docker/scripts/start-registry.sh
+```
+
+Verify it's up:
+
+```sh
+docker ps --filter name=bookstore-registry
+```
+
+To see what's actually stored in the registry (not just what Docker has cached locally — those
+are different things), query its HTTP API directly:
+
+```sh
+curl http://localhost:5000/v2/_catalog                       # list repositories
+curl http://localhost:5000/v2/bookstore/catalog/tags/list     # list tags for one repo
+```
+
+### Building, scanning, and pushing images
+
+Run from the **repository root** in Git Bash:
+
+```sh
+bash deploy/docker/scripts/build-scan-push.sh                 # all six images
+bash deploy/docker/scripts/build-scan-push.sh catalog cart     # or just specific services
+```
+
+For each service this: builds the image, runs `trivy image` against it (report saved to
+`evidence/trivy/<service>-<tag>.json`), and pushes to `localhost:5000` only if there are zero
+unresolved **Critical**-severity findings. Tags follow `<semver>-<short-commit>` (SDD 9.1) —
+the commit hash comes from `git rev-parse --short HEAD`, so run this from inside the repo, not a
+copied/zipped checkout, or the tag falls back to `<semver>-nogit` (still works, but loses the
+commit traceability the convention exists for).
+
+### Verifying a genuine registry pull (not just push)
+
+A `docker push` succeeding doesn't by itself prove a *pull* would work — and because pushed and
+locally-built images share identical layers, a `docker pull` right after a build will often just
+report `Already exists` without transferring anything, which isn't a meaningful test either. To
+prove the round-trip for real, delete every local reference first so nothing can be silently
+reused, then pull:
+
+```sh
+TAG="0.1.0-<short-commit>"
+docker rmi "bookstore/catalog:${TAG}" "localhost:5000/bookstore/catalog:${TAG}"
+docker images | grep catalog          # confirm it's gone locally
+
+docker pull "localhost:5000/bookstore/catalog:${TAG}"
+docker run --rm -d --name catalog-pulltest -p 18001:8000 \
+  -e DATABASE_URL="postgresql+psycopg://x:x@localhost/x" \
+  -e MIGRATION_DATABASE_URL="postgresql+psycopg://x:x@localhost/x" \
+  -e JWT_SECRET="pulltest-secret" \
+  "localhost:5000/bookstore/catalog:${TAG}"
+curl http://localhost:18001/health/live      # expect {"status":"live"}
+docker rm -f catalog-pulltest
+```
+
+The four other backend services follow the same pattern with their own required env vars (see
+each service's `app/core/config.py` for what's required vs. optional). `frontend` can't be
+smoke-tested standalone this way — its nginx config proxies `/api/*` to the other services by
+Compose service name, so it fails fast (`host not found in upstream "identity"`) when run in
+isolation. That's expected, not a bug: verify it instead as part of a full `docker compose up`
+(below), and confirm the running container's image digest matches what was pushed:
+
+```sh
+docker inspect bookstore-frontend-1 --format '{{.Image}}'
+docker image inspect localhost:5000/bookstore/frontend:<tag> --format '{{.Id}}'
+# both should print the same sha256 digest
+```
+
+### Running the full Compose stack
+
+```sh
+cd deploy/docker
+docker compose up --build
+```
+
+Brings up Postgres, Redis, one-shot Alembic migration jobs per service, one-shot seed jobs
+(`seed-catalog`, `seed-inventory` — idempotent, safe to re-run), all five application services,
+and the frontend, in health-check-gated dependency order. Once healthy, the app is at
+**http://localhost** (frontend on host port 80).
+
+Note: `docker compose up` **builds locally by default** — it does not pull from the registry
+started above, even though the registry is populated. The registry and the Compose stack are
+verified independently in this workflow; wiring Compose to pull from the registry (via
+`pull_policy: always` and a registry-qualified `image:`) is a later-stage concern once deploying
+to shared infrastructure, not required for Gate 3.
+
+A `docker-compose.override.yml` in the same directory adds a host-mapped Postgres port (5433)
+purely for local `pgAdmin` access — it's explicitly not part of the intended network design and
+should not be carried forward into any VM/Kubernetes deployment.
