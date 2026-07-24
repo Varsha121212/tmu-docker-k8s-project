@@ -1,0 +1,36 @@
+# US-PLT-13: Inventory Deployment and Service (SDD 10.2: 1 replica).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory
+  namespace: bookstore
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inventory
+  template:
+    metadata:
+      labels:
+        app: inventory
+    spec:
+      containers:
+        - name: inventory
+          image: 172.16.200.23:5000/bookstore/inventory:0.1.0-c997b06
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: inventory-secrets
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inventory-service
+  namespace: bookstore
+spec:
+  selector:
+    app: inventory
+  ports:
+    - port: 8000
+      targetPort: 8000

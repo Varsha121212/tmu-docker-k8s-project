@@ -1,0 +1,81 @@
+# US-PLT-13: one-shot Alembic migration Jobs - the Kubernetes equivalent of
+# Compose's migrate-* containers with `depends_on: condition:
+# service_completed_successfully`. No Cart job - Cart has no database (SDD
+# 7.4/8.3, Redis only). Applied and waited-on (kubectl wait --for=condition
+# =complete) BEFORE any app Deployment (20-25), since every app pod's own
+# startup assumes its schema already exists.
+#
+# Image tags: replace every <..._IMAGE_TAG> placeholder below with the real
+# tag from US-PLT-23's Part B output before applying - see US-PLT-13-runbook
+# .md's placeholder-substitution step.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate-identity
+  namespace: bookstore
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate-identity
+          image: 172.16.200.23:5000/bookstore/identity:0.1.0-c997b06
+          command: ["alembic", "upgrade", "head"]
+          envFrom:
+            - secretRef:
+                name: identity-secrets
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate-catalog
+  namespace: bookstore
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate-catalog
+          image: 172.16.200.23:5000/bookstore/catalog:0.1.0-c997b06
+          command: ["alembic", "upgrade", "head"]
+          envFrom:
+            - secretRef:
+                name: catalog-secrets
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate-inventory
+  namespace: bookstore
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate-inventory
+          image: 172.16.200.23:5000/bookstore/inventory:0.1.0-c997b06
+          command: ["alembic", "upgrade", "head"]
+          envFrom:
+            - secretRef:
+                name: inventory-secrets
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate-order
+  namespace: bookstore
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate-order
+          image: 172.16.200.23:5000/bookstore/order:0.1.0-c997b06
+          command: ["alembic", "upgrade", "head"]
+          envFrom:
+            - secretRef:
+                name: order-secrets

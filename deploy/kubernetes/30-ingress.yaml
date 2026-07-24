@@ -1,0 +1,70 @@
+# US-PLT-13: path-based Ingress (SDD 11.1 External Routing table). This
+# finally closes US-PLT-11's deferred AC #2 ("the frontend is
+# deployed... loads via the Ingress path") and replaces its throwaway
+# ingress-test.yaml (already deleted).
+#
+# No rewrite-target annotation - every backend service's own FastAPI
+# router is already mounted at the same path prefix listed below (e.g.
+# catalog's routes live under /api/books, confirmed against SDD Appendix
+# A / apps/services/catalog/app/modules/catalog/api.py), so the Ingress
+# must forward the original path unmodified.
+#
+# ingress-nginx resolves by longest-matching prefix regardless of rule
+# declaration order, so "/" never shadows "/api/*" - no ordering trick
+# needed here, just listed in SDD 11.1's own order for readability.
+#
+# /metrics is deliberately absent - not exposed publicly per SDD 11.1
+# ("Prometheus internal scrape only"), and the endpoint doesn't exist on
+# any service yet anyway (US-PLT-03, not this story).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: bookstore-ingress
+  namespace: bookstore
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /api/auth
+            pathType: Prefix
+            backend:
+              service:
+                name: identity-service
+                port:
+                  number: 8000
+          - path: /api/books
+            pathType: Prefix
+            backend:
+              service:
+                name: catalog-service
+                port:
+                  number: 8000
+          - path: /api/inventory
+            pathType: Prefix
+            backend:
+              service:
+                name: inventory-service
+                port:
+                  number: 8000
+          - path: /api/cart
+            pathType: Prefix
+            backend:
+              service:
+                name: cart-service
+                port:
+                  number: 8000
+          - path: /api/orders
+            pathType: Prefix
+            backend:
+              service:
+                name: order-service
+                port:
+                  number: 8000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend-service
+                port:
+                  number: 80

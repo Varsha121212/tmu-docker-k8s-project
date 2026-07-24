@@ -1,0 +1,47 @@
+# US-PLT-13: frontend Deployment and Service (SDD 10.2: 2 replicas).
+# No env vars - static Nginx image, zero backend config (confirmed from
+# src/lib/api.ts: relative "/api" base, same-origin). The Ingress
+# (30-ingress.yaml) intercepts every /api/* path before it ever reaches
+# this pod, so those location blocks never actually serve traffic in
+# Kubernetes - but the image DOES need nginx.conf's resolver+variable
+# fix (see that file's own header comment) to even start here. A literal
+# `proxy_pass http://identity:8000` resolves the hostname at nginx
+# config-load time, not just when the location is hit - "identity"
+# doesn't exist in Kubernetes DNS, so nginx refused to start at all
+# ("host not found in upstream"), crash-looping every replica. Found for
+# real during this story's first deploy (tasks/lessons.md) - "this route
+# never gets hit" and "this route can safely reference an unresolvable
+# host" are different claims, and conflating them broke this on the
+# first real run.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: bookstore
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: 172.16.200.23:5000/bookstore/frontend:0.0.0-c997b06
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: bookstore
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 80
+      targetPort: 8080

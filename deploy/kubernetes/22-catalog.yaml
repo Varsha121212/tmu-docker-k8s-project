@@ -1,0 +1,37 @@
+# US-PLT-13: catalog Deployment and Service (SDD 10.2: 1 replica now - HPA
+# with a 1-4 replica range is added by US-PLT-15, not this story).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog
+  namespace: bookstore
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: catalog
+  template:
+    metadata:
+      labels:
+        app: catalog
+    spec:
+      containers:
+        - name: catalog
+          image: 172.16.200.23:5000/bookstore/catalog:0.1.0-c997b06
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: catalog-secrets
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalog-service
+  namespace: bookstore
+spec:
+  selector:
+    app: catalog
+  ports:
+    - port: 8000
+      targetPort: 8000

@@ -1,0 +1,40 @@
+# US-PLT-13: Cart Deployment and Service (SDD 10.2: 1 replica). Needs
+# app-config for CATALOG_SERVICE_URL (cart calls catalog over HTTP to
+# validate books when adding to cart) in addition to its own Secret.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cart
+  namespace: bookstore
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cart
+  template:
+    metadata:
+      labels:
+        app: cart
+    spec:
+      containers:
+        - name: cart
+          image: 172.16.200.23:5000/bookstore/cart:0.1.0-c997b06
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: cart-secrets
+            - configMapRef:
+                name: app-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cart-service
+  namespace: bookstore
+spec:
+  selector:
+    app: cart
+  ports:
+    - port: 8000
+      targetPort: 8000

@@ -1,0 +1,30 @@
+# US-PLT-24: real Redis storage, same NFS mechanism as postgres-pv, its own
+# subdirectory of the export root, RWO (single Deployment replica).
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: redis-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: 172.16.200.23
+    path: /srv/nfs/k8s/redis
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+  namespace: bookstore
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ""
+  resources:
+    requests:
+      storage: 1Gi
+  volumeName: redis-pv

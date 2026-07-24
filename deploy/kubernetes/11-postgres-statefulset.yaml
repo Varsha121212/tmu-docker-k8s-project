@@ -1,0 +1,68 @@
+# US-PLT-24: PostgreSQL workload and Service (SDD 10.2: StatefulSet +
+# headless/ClusterIP Service + PVC). No probes, no resource requests/limits
+# yet - that's US-PLT-14's job across every workload uniformly, kept out
+# of this story to keep story boundaries clean.
+#
+# postgres-initdb ConfigMap is NOT defined here - it's generated from the
+# already-proven deploy/docker/postgres/init-db-roles.sh via
+# `kubectl create configmap ... --from-file` (see US-PLT-24-runbook.md Part
+# C) so there is exactly one source of truth for the role-bootstrap SQL,
+# not a hand-copied YAML duplicate that can drift from the Compose version.
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: bookstore
+spec:
+  clusterIP: None
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: bookstore
+spec:
+  serviceName: postgres-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - secretRef:
+                name: postgres-credentials
+          env:
+            # A subdirectory of the mount, not the mount root itself -
+            # avoids the well-known Postgres-on-NFS-root issue where the
+            # export root's own directory entries (e.g. lost+found) trip
+            # Postgres's "data directory has files in it" initdb check.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+            - name: postgres-initdb
+              mountPath: /docker-entrypoint-initdb.d/init-db-roles.sh
+              subPath: init-db-roles.sh
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+        - name: postgres-initdb
+          configMap:
+            name: postgres-initdb
+            defaultMode: 0755

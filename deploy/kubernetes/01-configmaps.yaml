@@ -1,0 +1,13 @@
+# US-PLT-13: non-secret cross-service configuration. Overrides the
+# Compose-only bare-name defaults baked into cart/order's app/core/config.py
+# (e.g. CATALOG_SERVICE_URL default "http://catalog:8000") with the
+# Kubernetes "-service" DNS convention (SDD 11.2).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: bookstore
+data:
+  CATALOG_SERVICE_URL: http://catalog-service:8000
+  CART_SERVICE_URL: http://cart-service:8000
+  INVENTORY_SERVICE_URL: http://inventory-service:8000

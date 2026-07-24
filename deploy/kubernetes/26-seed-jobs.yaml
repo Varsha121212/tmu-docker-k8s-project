@@ -1,0 +1,43 @@
+# US-PLT-13: one-shot seed Jobs (US-CAT-04 demo data), the Kubernetes
+# equivalent of Compose's seed-catalog/seed-inventory containers. Applied
+# AFTER 20-25, not alongside 15-migration-jobs.yaml - seed-inventory calls
+# catalog-service over live HTTP (SDD 6.1 service-boundary rule: no direct
+# cross-service schema access), so it needs catalog actually Ready, not
+# just migrated.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seed-catalog
+  namespace: bookstore
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: seed-catalog
+          image: 172.16.200.23:5000/bookstore/catalog:0.1.0-c997b06
+          command: ["python", "-m", "scripts.seed_catalog"]
+          envFrom:
+            - secretRef:
+                name: catalog-secrets
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seed-inventory
+  namespace: bookstore
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: seed-inventory
+          image: 172.16.200.23:5000/bookstore/inventory:0.1.0-c997b06
+          command: ["python", "-m", "scripts.seed_stock"]
+          envFrom:
+            - secretRef:
+                name: inventory-secrets
+            - configMapRef:
+                name: app-config

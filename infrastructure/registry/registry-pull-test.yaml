@@ -1,0 +1,17 @@
+# US-PLT-23 diagnostic manifest - proves the scheduler-driven pull path
+# works (containerd trust config on the node the scheduler picks, not
+# just wherever crictl pull was run manually). Not part of the
+# application; apply, check, then delete (see
+# infrastructure/registry/US-PLT-23-runbook.md, Part D step 2).
+#
+# Replace <tag from Part B> with the real tag before applying.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: registry-pull-test
+spec:
+  containers:
+    - name: identity
+      image: 172.16.200.23:5000/bookstore/identity:0.1.0-c997b06
+      imagePullPolicy: Always
+      command: ["sleep", "300"]

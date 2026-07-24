@@ -1,0 +1,40 @@
+# US-PLT-13: Order Deployment and Service (SDD 10.2: 2 replicas). Needs
+# app-config for CART_SERVICE_URL/INVENTORY_SERVICE_URL (checkout
+# orchestration calls both) in addition to its own Secret.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order
+  namespace: bookstore
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: order
+  template:
+    metadata:
+      labels:
+        app: order
+    spec:
+      containers:
+        - name: order
+          image: 172.16.200.23:5000/bookstore/order:0.1.0-c997b06
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: order-secrets
+            - configMapRef:
+                name: app-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  namespace: bookstore
+spec:
+  selector:
+    app: order
+  ports:
+    - port: 8000
+      targetPort: 8000

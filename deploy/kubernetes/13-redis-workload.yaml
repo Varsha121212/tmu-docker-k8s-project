@@ -1,0 +1,62 @@
+# US-PLT-24: Redis workload and Service (SDD 10.2: "StatefulSet/Deployment"
+# - Deployment chosen here, not StatefulSet: single replica, no Sentinel/
+# Cluster topology planned, so StatefulSet's ordinal/headless-service
+# machinery buys nothing at this scale).
+#
+# --requirepass is not optional here - US-PLT-20 already hit Redis's
+# protected-mode refusing all non-loopback connections without a password
+# on vm-baseline-db (MEMORY.md, 17 Jul). Pod-to-pod traffic across the
+# cluster network is the same non-loopback scenario, so this sets it
+# proactively rather than rediscovering the bug during verification.
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: bookstore
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: bookstore
+spec:
+  replicas: 1
+  # Required with a ReadWriteOnce PVC: the default RollingUpdate strategy
+  # would try to schedule a second pod against the same volume before the
+  # first is terminated, and deadlock. Recreate tears down the old pod
+  # first, same as Compose implicitly does with a single container.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-credentials
+                  key: REDIS_PASSWORD
+          command: ["redis-server", "--appendonly", "yes", "--requirepass", "$(REDIS_PASSWORD)"]
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+      volumes:
+        - name: redis-data
+          persistentVolumeClaim:
+            claimName: redis-pvc

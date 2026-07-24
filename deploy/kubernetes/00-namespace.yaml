@@ -1,0 +1,8 @@
+# SDD 10.2: Namespace bookstore - resource names and policies scoped to
+# the project, isolated from kube-system/ingress-nginx/other cluster
+# workloads. Applied first (US-PLT-24) - every other manifest in this
+# directory targets metadata.namespace: bookstore.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bookstore

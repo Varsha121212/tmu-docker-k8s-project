@@ -1,0 +1,36 @@
+# US-PLT-13: Identity Deployment and Service (SDD 10.2: 1 replica).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: identity
+  namespace: bookstore
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: identity
+  template:
+    metadata:
+      labels:
+        app: identity
+    spec:
+      containers:
+        - name: identity
+          image: 172.16.200.23:5000/bookstore/identity:0.1.0-c997b06
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: identity-secrets
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: identity-service
+  namespace: bookstore
+spec:
+  selector:
+    app: identity
+  ports:
+    - port: 8000
+      targetPort: 8000

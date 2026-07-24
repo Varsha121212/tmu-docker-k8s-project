@@ -5,14 +5,21 @@
 # not as a separate disconnected step (SDD 9.1: "Trivy scan result retained
 # before registry promotion").
 #
-# Usage: deploy/docker/scripts/build-scan-push.sh [service ...]
-#   No arguments builds/scans/pushes all six images.
+# Usage: deploy/docker/scripts/build-scan-push.sh [--allow-critical] [service ...]
+#   No service arguments builds/scans/pushes all six images.
+#   --allow-critical pushes anyway despite unresolved Critical findings -
+#   only use this for findings with a documented risk acceptance (see
+#   deploy/docker/scripts/RISK-ACCEPTANCE.md). It does not distinguish
+#   already-reviewed findings from new ones - any Critical finding present
+#   at push time is waved through, so re-review the report after every use.
 #
 # Tag convention (SDD 9.1): registry:5000/bookstore/<service>:<semver>-<short-commit>
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-REGISTRY="localhost:5000"
+# US-PLT-23: overridable so the same script can push to the registry-monitoring
+# VM's registry (172.16.200.23:5000) instead of the local dev registry.
+REGISTRY="${REGISTRY:-localhost:5000}"
 if ! SHORT_COMMIT="$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>&1)"; then
     echo "WARNING: git rev-parse failed, tagging with 'nogit' instead of a commit hash:" >&2
     echo "  $SHORT_COMMIT" >&2
@@ -80,13 +87,19 @@ PY
     )"
 
     if [ "$critical_count" -gt 0 ]; then
-        echo "!! ${service}: ${critical_count} unresolved Critical finding(s) - blocking promotion."
-        echo "   Report: $report_file"
-        echo "   To override, document the accepted risk and re-run with --allow-critical."
-        return 1
+        if [ "$ALLOW_CRITICAL" -eq 1 ]; then
+            echo "!! ${service}: ${critical_count} unresolved Critical finding(s) - ALLOWED via --allow-critical."
+            echo "   Report: $report_file"
+            echo "   Confirm this matches a documented risk acceptance: deploy/docker/scripts/RISK-ACCEPTANCE.md"
+        else
+            echo "!! ${service}: ${critical_count} unresolved Critical finding(s) - blocking promotion."
+            echo "   Report: $report_file"
+            echo "   To override, document the accepted risk and re-run with --allow-critical."
+            return 1
+        fi
     fi
 
-    echo "== ${service}: no Critical findings, pushing to ${REGISTRY} =="
+    echo "== ${service}: pushing to ${REGISTRY} =="
     docker push "$registry_image"
     local digest
     digest="$(docker inspect --format='{{index .RepoDigests 0}}' "$registry_image" 2>/dev/null || echo "unknown")"
@@ -94,7 +107,15 @@ PY
     echo "$digest" > "$EVIDENCE_DIR/${service}-${tag}.digest.txt"
 }
 
-SERVICES=("$@")
+ALLOW_CRITICAL=0
+SERVICES=()
+for arg in "$@"; do
+    if [ "$arg" = "--allow-critical" ]; then
+        ALLOW_CRITICAL=1
+    else
+        SERVICES+=("$arg")
+    fi
+done
 if [ "${#SERVICES[@]}" -eq 0 ]; then
     SERVICES=(identity catalog inventory cart order frontend)
 fi

@@ -1,0 +1,36 @@
+# US-PLT-24: real PostgreSQL storage, built on the NFS export mechanism
+# already proven end-to-end by US-PLT-12's throwaway test PV/PVC (deleted
+# after that story's verification). ReadWriteOnce, not US-PLT-12's RWX -
+# only one StatefulSet replica will ever mount this, and RWO prevents a
+# second PVC accidentally binding the same data directory.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: postgres-pv
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  # R05 mitigation (documented reclaim policy, same choice US-PLT-12 made):
+  # deleting the PVC does not silently delete the real data on the NFS
+  # server - a deliberate extra step, not an oversight.
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: 172.16.200.23
+    path: /srv/nfs/k8s/postgres
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: bookstore
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ""
+  resources:
+    requests:
+      storage: 5Gi
+  volumeName: postgres-pv
