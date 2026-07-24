@@ -1,0 +1,28 @@
+# US-PLT-13: one-shot seed Job (US-CAT-04 demo data), the Kubernetes
+# equivalent of Compose's seed-inventory container. Applied AFTER
+# 26-seed-catalog-job.yaml has genuinely COMPLETED (not just after
+# catalog-service is Ready) - seed_stock.py fetches its book list from
+# catalog-service over HTTP (SDD 6.1: no direct cross-service schema
+# access) and silently creates 0 rows if the catalog is still empty, no
+# error raised - see 26-seed-catalog-job.yaml's own header comment for
+# why this has to be a separate, ordered apply rather than combined with
+# it in one file.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seed-inventory
+  namespace: bookstore
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: seed-inventory
+          image: 172.16.200.23:5000/bookstore/inventory:0.1.0-c997b06
+          command: ["python", "-m", "scripts.seed_stock"]
+          envFrom:
+            - secretRef:
+                name: inventory-secrets
+            - configMapRef:
+                name: app-config

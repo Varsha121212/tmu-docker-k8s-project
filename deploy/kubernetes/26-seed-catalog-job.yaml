@@ -1,0 +1,26 @@
+# US-PLT-13: one-shot seed Job (US-CAT-04 demo data), the Kubernetes
+# equivalent of Compose's seed-catalog container. Applied AFTER 20-25
+# (catalog Deployment must be Ready), and MUST complete before
+# 27-seed-inventory-job.yaml is applied - split into its own file
+# specifically to make that ordering enforceable via a `kubectl wait` in
+# between (Kubernetes has no native cross-Job "depends_on"; applying both
+# in one file, as an earlier version of this manifest did, gives no
+# ordering guarantee and let seed-inventory race ahead of seed-catalog
+# against an empty catalog on the first real run - see tasks/lessons.md).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seed-catalog
+  namespace: bookstore
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: seed-catalog
+          image: 172.16.200.23:5000/bookstore/catalog:0.1.0-c997b06
+          command: ["python", "-m", "scripts.seed_catalog"]
+          envFrom:
+            - secretRef:
+                name: catalog-secrets

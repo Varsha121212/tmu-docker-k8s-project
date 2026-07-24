@@ -30,7 +30,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: 172.16.200.23:5000/bookstore/frontend:0.0.0-c997b06
+          image: 172.16.200.23:5000/bookstore/frontend:0.0.0-1c39d25
           ports:
             - containerPort: 8080
 ---

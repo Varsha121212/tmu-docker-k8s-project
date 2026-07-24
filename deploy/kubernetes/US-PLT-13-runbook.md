@@ -15,7 +15,8 @@ this story's files). Stated explicitly at the top of each Part, not just
 here, so it doesn't get lost partway through.
 
 **Files in this story:** `01-configmaps.yaml`, `15-migration-jobs.yaml`,
-`20-frontend.yaml` … `25-order.yaml`, `26-seed-jobs.yaml`,
+`20-frontend.yaml` … `25-order.yaml`, `26-seed-catalog-job.yaml`,
+`27-seed-inventory-job.yaml`,
 `30-ingress.yaml`, all under `deploy/kubernetes/` in the repo on your
 laptop (`00-namespace.yaml` and `02-secrets.yaml` were already applied in
 US-PLT-24 — reused here, not reapplied). **None of these exist on
@@ -66,7 +67,8 @@ sed -i \
   -e "s#<ORDER_IMAGE_TAG>#0.1.0-XXXXXXX#g" \
   -e "s#<FRONTEND_IMAGE_TAG>#0.0.0-XXXXXXX#g" \
   15-migration-jobs.yaml 20-frontend.yaml 21-identity.yaml 22-catalog.yaml \
-  23-inventory.yaml 24-cart.yaml 25-order.yaml 26-seed-jobs.yaml
+  23-inventory.yaml 24-cart.yaml 25-order.yaml 26-seed-catalog-job.yaml \
+  27-seed-inventory-job.yaml
 grep -rn '<.*_IMAGE_TAG>' *.yaml   # expect no output - confirms nothing was missed
 cd ../..
 ```
@@ -162,16 +164,30 @@ order ×2 — all `Running`.
 
 Run **on `vm-master`**, still inside `~/deploy-kubernetes`.
 
+**`seed-catalog` must genuinely complete before `seed-inventory` starts**
+— not just "catalog-service is `Ready`". `seed_stock.py` fetches its book
+list from `catalog-service` over HTTP and silently creates 0 stock rows
+if the catalog is still empty, with no error (found for real on this
+story's first run — see `tasks/lessons.md`). Compose enforced this with
+an explicit `depends_on: seed-catalog: condition:
+service_completed_successfully`; Kubernetes Jobs have no equivalent, so
+this has to be two separate `apply` + `wait` steps, not one:
 ```sh
-kubectl apply -f 26-seed-jobs.yaml
-kubectl wait --for=condition=complete job/seed-catalog job/seed-inventory -n bookstore --timeout=180s
+kubectl apply -f 26-seed-catalog-job.yaml
+kubectl wait --for=condition=complete job/seed-catalog -n bookstore --timeout=180s
+kubectl logs -n bookstore job/seed-catalog   # expect real counts, e.g. "16 book(s) created"
+```
+Only once that's genuinely done:
+```sh
+kubectl apply -f 27-seed-inventory-job.yaml
+kubectl wait --for=condition=complete job/seed-inventory -n bookstore --timeout=180s
+kubectl logs -n bookstore job/seed-inventory   # expect nonzero "created" count, not 0/0
 kubectl get jobs -n bookstore
 ```
-If `seed-inventory` fails specifically, check it can actually reach
-`catalog-service` before assuming a code bug:
-```sh
-kubectl logs -n bookstore job/seed-inventory
-```
+If `seed-inventory` still shows `0 stock row(s) created, 0 already
+present` after this ordering fix, *then* it's worth checking whether it
+can actually reach `catalog-service` at all — but confirm the ordering
+was the cause first, don't jump straight to a connectivity theory.
 
 ## Part E — Ingress
 
