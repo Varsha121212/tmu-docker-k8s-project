@@ -1,7 +1,7 @@
 # US-PLT-24: PostgreSQL workload and Service (SDD 10.2: StatefulSet +
-# headless/ClusterIP Service + PVC). No probes, no resource requests/limits
-# yet - that's US-PLT-14's job across every workload uniformly, kept out
-# of this story to keep story boundaries clean.
+# headless/ClusterIP Service + PVC). Probes and resource requests/limits
+# added by US-PLT-14 (SDD 10.3/10.5), kept out of this story originally
+# to keep story boundaries clean.
 #
 # postgres-initdb ConfigMap is NOT defined here - it's generated from the
 # already-proven deploy/docker/postgres/init-db-roles.sh via
@@ -58,6 +58,27 @@ spec:
             - name: postgres-initdb
               mountPath: /docker-entrypoint-initdb.d/init-db-roles.sh
               subPath: init-db-roles.sh
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
       volumes:
         - name: postgres-data
           persistentVolumeClaim:

@@ -22,6 +22,29 @@ spec:
           envFrom:
             - secretRef:
                 name: identity-secrets
+          readinessProbe:
+            httpGet:
+              path: /api/auth/health/ready
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
 ---
 apiVersion: v1
 kind: Service
