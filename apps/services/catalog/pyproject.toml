@@ -1,6 +1,6 @@
 [project]
 name = "bookstore-catalog-service"
-version = "0.1.0"
+version = "0.1.1"
 description = "Stage 2/3 Catalog microservice for the CN8001 Online Bookstore project"
 requires-python = ">=3.12"
 dependencies = [
@@ -12,6 +12,7 @@ dependencies = [
     "alembic>=1.14",
     "psycopg[binary]>=3.2",
     "pyjwt>=2.9",
+    "prometheus-fastapi-instrumentator>=8.0",
 ]
 
 [project.optional-dependencies]

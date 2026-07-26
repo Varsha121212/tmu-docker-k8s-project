@@ -1,5 +1,14 @@
 # US-PLT-13: catalog Deployment and Service (SDD 10.2: 1 replica now - HPA
 # with a 1-4 replica range is added by US-PLT-15, not this story).
+#
+# US-PLT-15: HorizontalPodAutoscaler below targets 65% average CPU
+# utilization against the Deployment's `resources.requests.cpu: 100m` (set
+# by US-PLT-14) - the HPA has nothing to compute utilization against
+# without that request being set. autoscaling/v2 (not v1) is required for
+# an explicit `averageUtilization` target type and per-metric behavior;
+# scale-down stabilizationWindowSeconds is left at the (unstated-but-
+# effective) cluster default of 300s rather than pinned here, so a brief
+# load dip doesn't immediately thrash replicas back down.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -58,3 +67,23 @@ spec:
   ports:
     - port: 8000
       targetPort: 8000
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: catalog-hpa
+  namespace: bookstore
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: catalog
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 65

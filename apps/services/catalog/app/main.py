@@ -2,6 +2,7 @@ import uuid
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
@@ -31,6 +32,10 @@ async def correlation_id_middleware(request: Request, call_next):
 register_exception_handlers(app)
 
 app.include_router(catalog_router)
+
+Instrumentator(excluded_handlers=["/health/live", ".*/health/ready$"]).instrument(app).expose(
+    app, endpoint="/metrics", include_in_schema=False
+)
 
 
 @app.get("/health/live")
