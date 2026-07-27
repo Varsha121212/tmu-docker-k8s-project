@@ -13,10 +13,14 @@ spec:
     metadata:
       labels:
         app: identity
+        # US-PLT-19: selected by 33-network-policies.yaml's Postgres allow
+        # rule - orthogonal to `app` since that label is also the Service
+        # selector (reusing it on a non-app-port pod would be wrong there).
+        netpol: postgres-client
     spec:
       containers:
         - name: identity
-          image: 172.16.200.23:5000/bookstore/identity:0.1.0-c997b06
+          image: 172.16.200.23:5000/bookstore/identity:0.1.1-a08a02d
           ports:
             - containerPort: 8000
           envFrom:
@@ -57,3 +61,21 @@ spec:
   ports:
     - port: 8000
       targetPort: 8000
+---
+# US-PLT-18: NodePort so the external Prometheus (registry-monitoring VM,
+# not a cluster member, no route to ClusterIPs) can scrape /metrics. Same
+# bridging mechanism the Ingress already uses at :30080 - stays inside the
+# VPN-only subnet, never touches the public Ingress.
+apiVersion: v1
+kind: Service
+metadata:
+  name: identity-metrics-nodeport
+  namespace: bookstore
+spec:
+  type: NodePort
+  selector:
+    app: identity
+  ports:
+    - port: 8000
+      targetPort: 8000
+      nodePort: 30081

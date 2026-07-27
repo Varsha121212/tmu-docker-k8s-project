@@ -1,0 +1,99 @@
+# US-PLT-18: scrape config for the Prometheus instance running on
+# registry-monitoring (172.16.200.23) - outside the kubeadm cluster (SDD
+# 10.1), so every Kubernetes-side target below is reached through a
+# NodePort or a node's own real IP, not a ClusterIP/pod IP (no route to
+# either from off-cluster). See deploy/kubernetes/US-PLT-18-runbook.md for
+# the full reasoning.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Prometheus's own self-scrape.
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Node Exporter - all six VMs. SDD 10.1 node list; SDD line "9100
+  # restricted to monitoring VM" (see runbook Part A's ufw rule).
+  - job_name: node-exporter
+    static_configs:
+      - targets:
+          - "172.16.200.20:9100" # vm-master
+        labels: { vm: "vm-master" }
+      - targets:
+          - "172.16.200.21:9100" # vm-worker-1
+        labels: { vm: "vm-worker-1" }
+      - targets:
+          - "172.16.200.22:9100" # vm-worker-2
+        labels: { vm: "vm-worker-2" }
+      - targets:
+          - "172.16.200.23:9100" # registry-monitoring (self)
+        labels: { vm: "registry-monitoring" }
+      - targets:
+          - "172.16.200.24:9100" # vm-baseline-app
+        labels: { vm: "vm-baseline-app" }
+      - targets:
+          - "172.16.200.25:9100" # vm-baseline-db
+        labels: { vm: "vm-baseline-db" }
+
+  # kubelet's cAdvisor endpoint, scraped directly on each cluster node's
+  # real IP:10250 - gives real per-pod/per-container CPU+memory regardless
+  # of which pod a NodePort scrape would have load-balanced to, since this
+  # queries the node directly rather than going through a Service.
+  # Requires the prometheus-scraper ServiceAccount's bearer token (Part B
+  # of the runbook) - kubelet's API is not anonymous by default.
+  - job_name: kubelet-cadvisor
+    scheme: https
+    tls_config:
+      insecure_skip_verify: true # kubelet's serving cert is self-signed by default
+    bearer_token_file: /etc/prometheus/prometheus-scraper.token
+    metrics_path: /metrics/cadvisor
+    static_configs:
+      - targets:
+          - "172.16.200.20:10250" # vm-master
+        labels: { vm: "vm-master" }
+      - targets:
+          - "172.16.200.21:10250" # vm-worker-1
+        labels: { vm: "vm-worker-1" }
+      - targets:
+          - "172.16.200.22:10250" # vm-worker-2
+        labels: { vm: "vm-worker-2" }
+
+  # kube-state-metrics - Deployment replicas, pod status, restarts, HPA
+  # state (SDD 14.1). Reached via NodePort (deploy/kubernetes/
+  # 32-kube-state-metrics.yaml); any of the three cluster nodes' IPs would
+  # work identically, vm-master picked arbitrarily.
+  - job_name: kube-state-metrics
+    static_configs:
+      - targets: ["172.16.200.20:30090"]
+
+  # The five application services' own /metrics (US-PLT-03). Reached via
+  # NodePort, not the public Ingress (30-ingress.yaml deliberately excludes
+  # /metrics). Gives AC#1's "application target is Up and reporting real
+  # data" evidence; NOT the source for the "Load and outcome" dashboard row
+  # (see prometheus-remote-write note below) since a NodePort only shows
+  # one replica's view at a time for order (2 replicas) and catalog
+  # (1-4 via HPA).
+  - job_name: bookstore-services
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["172.16.200.20:30081"]
+        labels: { service: "identity" }
+      - targets: ["172.16.200.20:30082"]
+        labels: { service: "catalog" }
+      - targets: ["172.16.200.20:30083"]
+        labels: { service: "inventory" }
+      - targets: ["172.16.200.20:30084"]
+        labels: { service: "cart" }
+      - targets: ["172.16.200.20:30085"]
+        labels: { service: "order" }
+
+# k6's own load-test metrics (VUs, RPS, p50/p95, error rate - SDD 14.1's
+# separate "k6" metric-source row) arrive via remote-write, not a scrape_config
+# target - k6 pushes to Prometheus's own remote-write receiver
+# (http://172.16.200.23:9090/api/v1/write) when run with
+# `--out experimental-prometheus-rw`. The receiver must be enabled on this
+# Prometheus container at startup (--web.enable-remote-write-receiver or
+# --enable-feature=remote-write-receiver - check `docker run prom/prometheus
+# --help` for the exact current flag before starting the container).

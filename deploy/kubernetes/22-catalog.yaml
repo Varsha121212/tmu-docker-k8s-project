@@ -23,10 +23,11 @@ spec:
     metadata:
       labels:
         app: catalog
+        netpol: postgres-client # US-PLT-19: see 21-identity.yaml's comment
     spec:
       containers:
         - name: catalog
-          image: 172.16.200.23:5000/bookstore/catalog:0.1.0-c997b06
+          image: 172.16.200.23:5000/bookstore/catalog:0.1.1-a08a02d
           ports:
             - containerPort: 8000
           envFrom:
@@ -67,6 +68,30 @@ spec:
   ports:
     - port: 8000
       targetPort: 8000
+---
+# US-PLT-18: NodePort so the external Prometheus (registry-monitoring VM,
+# not a cluster member, no route to ClusterIPs) can scrape /metrics. Same
+# bridging mechanism the Ingress already uses at :30080 - stays inside the
+# VPN-only subnet, never touches the public Ingress. Note: this HPA scales
+# catalog 1-4 replicas - a NodePort load-balances across whichever are
+# Ready, so this only gives a single-replica view of the app's own counters
+# at any moment. Not a problem for AC#1 (proves the target is Up and
+# reporting real data); the "Load and outcome" dashboard row is fed by k6's
+# own remote-write output instead, not by this endpoint, precisely to avoid
+# that limitation during a scale-up.
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalog-metrics-nodeport
+  namespace: bookstore
+spec:
+  type: NodePort
+  selector:
+    app: catalog
+  ports:
+    - port: 8000
+      targetPort: 8000
+      nodePort: 30082
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler

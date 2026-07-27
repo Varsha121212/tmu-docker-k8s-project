@@ -1,0 +1,36 @@
+# US-PLT-18: identity the external Prometheus (registry-monitoring VM, not
+# a cluster member) authenticates as when scraping kubelet's cAdvisor
+# endpoint directly on each node's real IP:10250 - that endpoint requires a
+# valid bearer token reviewable by the API server, not anonymous access.
+# A long-lived token for this ServiceAccount is generated at runbook time
+# (`kubectl create token prometheus-scraper --duration=8760h`) and copied to
+# registry-monitoring for Prometheus's bearer_token_file - a static token,
+# not auto-refreshing; acceptable for this project's timeframe, flagged in
+# the runbook rather than silently treated as a permanent solution.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus-scraper
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus-scraper
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "nodes/metrics", "nodes/proxy", "nodes/stats"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus-scraper
+subjects:
+  - kind: ServiceAccount
+    name: prometheus-scraper
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: prometheus-scraper
+  apiGroup: rbac.authorization.k8s.io

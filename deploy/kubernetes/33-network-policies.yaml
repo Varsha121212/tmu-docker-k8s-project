@@ -1,0 +1,54 @@
+# US-PLT-19: Calico NetworkPolicies restricting Postgres/Redis to only the
+# authorized service pods (BRULE-10, SDD 13.3, NFR-SEC-01). A NetworkPolicy
+# that selects a pod switches that pod to default-deny for any direction
+# listed in policyTypes - traffic not matching an explicit rule below is
+# dropped, so each of these is both the "default-deny" and the "allow" in
+# one object. Scoped to Ingress only and to the Postgres/Redis pods
+# specifically, not a namespace-wide default-deny, so the Ingress
+# controller and US-PLT-18's NodePort scraping path are unaffected.
+#
+# `netpol: postgres-client` / `netpol: redis-client` are dedicated labels
+# (see 21-identity.yaml's comment) added to the Deployments/Jobs that
+# actually connect to each backend - kept separate from `app` because
+# `app` also drives each Service's own selector, and Postgres/Redis have no
+# `namespaceSelector` here since a bare podSelector already only matches
+# pods within this policy's own namespace (bookstore).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-allow-authorized
+  namespace: bookstore
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              netpol: postgres-client
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-allow-authorized
+  namespace: bookstore
+spec:
+  podSelector:
+    matchLabels:
+      app: redis
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              netpol: redis-client
+      ports:
+        - protocol: TCP
+          port: 6379

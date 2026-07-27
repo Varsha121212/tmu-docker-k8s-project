@@ -1,0 +1,135 @@
+{
+  "title": "TMU BookVerse - Stage 3 Kubernetes Observability (US-PLT-18)",
+  "uid": "us-plt-18-k8s-observability",
+  "schemaVersion": 39,
+  "timezone": "browser",
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "panels": [
+    { "id": 1, "type": "row", "title": "Environment summary", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 } },
+    {
+      "id": 2, "type": "stat", "title": "Stage",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "targets": [{ "expr": "count(up{job=\"bookstore-services\"} == 1)", "legendFormat": "app targets Up" }],
+      "fieldConfig": { "defaults": { "mappings": [], "unit": "none" } }
+    },
+    {
+      "id": 3, "type": "stat", "title": "Endpoint health (targets Up)",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "targets": [{ "expr": "sum(up)", "legendFormat": "targets Up" }, { "expr": "count(up)", "legendFormat": "targets configured" }]
+    },
+    {
+      "id": 4, "type": "stat", "title": "Active load test (k6 VUs)",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "description": "k6 metric name pending live verification - see US-PLT-18-runbook.md Part D",
+      "targets": [{ "expr": "k6_vus", "legendFormat": "VUs" }]
+    },
+    {
+      "id": 5, "type": "stat", "title": "Current image version (catalog)",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "targets": [{ "expr": "kube_pod_container_info{namespace=\"bookstore\", container=\"catalog\"}", "legendFormat": "{{image}}" }]
+    },
+
+    { "id": 10, "type": "row", "title": "Load and outcome (k6, during a test run)", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 } },
+    {
+      "id": 11, "type": "timeseries", "title": "Virtual users (VUs)",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 6 },
+      "targets": [{ "expr": "k6_vus", "legendFormat": "VUs" }]
+    },
+    {
+      "id": 12, "type": "timeseries", "title": "Requests per second",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 6 },
+      "targets": [{ "expr": "sum(rate(k6_http_reqs_total[1m]))", "legendFormat": "RPS" }]
+    },
+    {
+      "id": 13, "type": "timeseries", "title": "p99 latency (k6's default trend stat - no p50/p95 series exist unless K6_PROMETHEUS_RW_TREND_STATS is set to export them)",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 6 },
+      "targets": [{ "expr": "k6_http_req_duration_p99", "legendFormat": "p99" }]
+    },
+    {
+      "id": 14, "type": "timeseries", "title": "Error rate %",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 6 },
+      "targets": [{ "expr": "k6_http_req_failed_rate * 100", "legendFormat": "error rate %" }]
+    },
+
+    { "id": 20, "type": "row", "title": "Resources (VM / node / pod CPU and memory)", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 12 } },
+    {
+      "id": 21, "type": "timeseries", "title": "VM/node CPU utilization",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 13 },
+      "targets": [{ "expr": "100 - (avg by (vm) (rate(node_cpu_seconds_total{mode=\"idle\"}[1m])) * 100)", "legendFormat": "{{vm}}" }]
+    },
+    {
+      "id": 22, "type": "timeseries", "title": "VM/node memory used %",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 13 },
+      "targets": [{ "expr": "100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))", "legendFormat": "{{vm}}" }]
+    },
+    {
+      "id": 23, "type": "timeseries", "title": "Per-pod CPU usage (bookstore namespace)",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 19 },
+      "targets": [{ "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"bookstore\"}[1m])) by (pod)", "legendFormat": "{{pod}}" }]
+    },
+    {
+      "id": 24, "type": "timeseries", "title": "Per-pod memory usage (bookstore namespace)",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 19 },
+      "targets": [{ "expr": "sum(container_memory_working_set_bytes{namespace=\"bookstore\"}) by (pod)", "legendFormat": "{{pod}}" }]
+    },
+
+    { "id": 30, "type": "row", "title": "Scalability (HPA correlation)", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 25 } },
+    {
+      "id": 31, "type": "timeseries", "title": "Catalog replicas: desired vs current vs available",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 26 },
+      "targets": [
+        { "expr": "kube_horizontalpodautoscaler_status_desired_replicas{namespace=\"bookstore\", horizontalpodautoscaler=\"catalog-hpa\"}", "legendFormat": "desired" },
+        { "expr": "kube_horizontalpodautoscaler_status_current_replicas{namespace=\"bookstore\", horizontalpodautoscaler=\"catalog-hpa\"}", "legendFormat": "current" },
+        { "expr": "kube_deployment_status_replicas_available{namespace=\"bookstore\", deployment=\"catalog\"}", "legendFormat": "available" }
+      ]
+    },
+    {
+      "id": 32, "type": "timeseries", "title": "Catalog CPU utilization vs HPA target (65%)",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 26 },
+      "targets": [
+        { "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"bookstore\", pod=~\"catalog-.*\"}[1m])) / (count(container_cpu_usage_seconds_total{namespace=\"bookstore\", pod=~\"catalog-.*\"}) * 0.1) * 100", "legendFormat": "avg CPU % of request" }
+      ]
+    },
+
+    { "id": 40, "type": "row", "title": "Resilience (self-healing and rollouts)", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 33 } },
+    {
+      "id": 41, "type": "timeseries", "title": "Pod restarts (bookstore namespace)",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 34 },
+      "targets": [{ "expr": "sum(kube_pod_container_status_restarts_total{namespace=\"bookstore\"}) by (pod)", "legendFormat": "{{pod}}" }]
+    },
+    {
+      "id": 42, "type": "timeseries", "title": "Unavailable replicas by Deployment",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 34 },
+      "targets": [{ "expr": "kube_deployment_status_replicas_unavailable{namespace=\"bookstore\"}", "legendFormat": "{{deployment}}" }]
+    },
+    {
+      "id": 43, "type": "stat", "title": "Rollout status (updated vs desired replicas)",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 34 },
+      "targets": [
+        { "expr": "kube_deployment_status_replicas_updated{namespace=\"bookstore\"}", "legendFormat": "{{deployment}} updated" },
+        { "expr": "kube_deployment_spec_replicas{namespace=\"bookstore\"}", "legendFormat": "{{deployment}} desired" }
+      ]
+    },
+
+    { "id": 50, "type": "row", "title": "Storage / network", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 } },
+    {
+      "id": 51, "type": "stat", "title": "PVC status (bookstore namespace)",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 41 },
+      "targets": [{ "expr": "kube_persistentvolumeclaim_status_phase{namespace=\"bookstore\"} == 1", "legendFormat": "{{persistentvolumeclaim}}: {{phase}}" }]
+    },
+    {
+      "id": 52, "type": "timeseries", "title": "Disk use % (VMs/nodes)",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 41 },
+      "targets": [{ "expr": "100 * (1 - (node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay\"}))", "legendFormat": "{{vm}}:{{mountpoint}}" }]
+    },
+    {
+      "id": 53, "type": "timeseries", "title": "Network throughput (VMs/nodes)",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 41 },
+      "targets": [
+        { "expr": "rate(node_network_receive_bytes_total{device!~\"lo|docker.*|veth.*\"}[1m])", "legendFormat": "{{vm}} rx" },
+        { "expr": "rate(node_network_transmit_bytes_total{device!~\"lo|docker.*|veth.*\"}[1m])", "legendFormat": "{{vm}} tx" }
+      ]
+    }
+  ]
+}

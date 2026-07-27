@@ -16,6 +16,11 @@ metadata:
 spec:
   backoffLimit: 2
   template:
+    metadata:
+      # US-PLT-19: selected by 33-network-policies.yaml's Postgres allow
+      # rule, same reasoning as 21-identity.yaml's Deployment pod template.
+      labels:
+        netpol: postgres-client
     spec:
       restartPolicy: Never
       containers:
@@ -34,6 +39,9 @@ metadata:
 spec:
   backoffLimit: 2
   template:
+    metadata:
+      labels:
+        netpol: postgres-client # US-PLT-19: see migrate-identity's comment
     spec:
       restartPolicy: Never
       containers:
@@ -52,6 +60,9 @@ metadata:
 spec:
   backoffLimit: 2
   template:
+    metadata:
+      labels:
+        netpol: postgres-client # US-PLT-19: see migrate-identity's comment
     spec:
       restartPolicy: Never
       containers:
@@ -70,6 +81,9 @@ metadata:
 spec:
   backoffLimit: 2
   template:
+    metadata:
+      labels:
+        netpol: postgres-client # US-PLT-19: see migrate-identity's comment
     spec:
       restartPolicy: Never
       containers:
