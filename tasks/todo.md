@@ -1,113 +1,92 @@
-# US-PLT-19: NetworkPolicies restricting database/cache access
+# US-PLT-21: Deploy Stage 2 Compose stack to the baseline VM for comparison
 
-**Story:** As a system administrator, I want Calico NetworkPolicies that
-restrict PostgreSQL and Redis access to only the authorized service pods,
-so that the database and cache are not reachable by unauthorized workloads
-or the public Ingress.
+**Story:** As the project team, I want the Stage 2 Docker Compose stack
+deployed to `vm-baseline-app` — the same VM used for the Stage 1 baseline —
+after Stage 1 baseline evidence is captured there, so that the Stage
+1-vs-Stage 2 comparison measures the orchestration-model difference on
+identical hardware, not confounded by different host specs.
 
-**Traces to:** BRULE-10, SDD section 13.3, PT-13, NFR-SEC-01
-**Points:** 3 — last story in Period 4 (33/33 pts once done).
-**Prerequisites (already done):** US-PLT-24 (Postgres/Redis running in
-`bookstore`), US-PLT-09/10 (Calico confirmed as CNI, so standard
-`NetworkPolicy` objects are enforced, not silently ignored).
+**Traces to:** PMP 10.1, 17.4. Depends on US-PLT-20 (done) and US-PLT-22
+(done — Stage 1 evidence archived, safe to proceed).
+**Points:** 3 — Compose stack itself already proven (Period 2, local Docker
+Desktop); remaining work is VM-specific configuration only.
 
-## Design decision
+## Design decisions (stated here so they can be corrected before I build the
+runbook around them — flag if any of these are wrong)
 
-A `NetworkPolicy` that selects a pod (via `podSelector`) switches that pod
-to default-deny for any traffic direction listed in `policyTypes` — traffic
-not matching an explicit rule is dropped. No separate "default-deny" object
-is needed alongside the "allow" rules; one policy per workload, each with
-its own allow list, gives both in one object.
-
-Scope is **Ingress-only**, limited to the Postgres and Redis pods
-specifically — not a namespace-wide default-deny — matching the AC's literal
-wording ("PostgreSQL and Redis access... not reachable by unauthorized
-workloads") rather than reopening a broader zero-trust redesign that would
-also need new allow rules for the Ingress controller and the US-PLT-18
-NodePort scraping path.
-
-Which pods are "authorized": from `02-secrets.yaml.example`'s
-`DATABASE_URL`/`REDIS_URL` values — Identity, Catalog, Inventory, and Order
-connect to `postgres-service:5432`; Cart connects only to
-`redis-service:6379` (SDD 7.4/8.3 — Cart has no database). The four
-Alembic migration Jobs (`15-migration-jobs.yaml`) also need Postgres access
-transiently.
-
-Rather than selecting on the existing `app: <service>` label (which is
-also each Service's own selector — reusing it on the migration Jobs would
-make Postgres/Redis's Services attempt to route DB traffic to job pods,
-which don't listen on 5432/6379), add a dedicated label,
-`netpol: postgres-client` / `netpol: redis-client`, to the pods that need
-DB access, orthogonal to `app`.
+1. **Single-VM, self-contained topology — `vm-baseline-db` is NOT reused.**
+   Checked `deploy/docker/docker-compose.yml`: it already brings its own
+   `postgres`/`redis` containers with a fresh named volume and its own
+   `init-db-roles.sh` bootstrap (ADR-005 per-service roles) — fully
+   self-contained, exactly as tested in Period 2. PMP 10.1 itself names only
+   `vm-baseline-app` as host for "Stage 2 Docker Compose microservices."
+   Re-plumbing the compose file to point at an external Postgres on
+   `vm-baseline-db` would be new, unproven work for no stated benefit —
+   `vm-baseline-db` simply goes unused once Stage 2 deploys, which is fine.
+2. **Registry pull, not a local rebuild.** Confirmed live against
+   `registry-monitoring` (172.16.200.23:5000, reachable): five backend
+   services are at `0.1.1-a08a02d`, `frontend` at `0.0.0-1c39d25` (the
+   Trivy-remediated OpenSSL fix from US-PLT-23). Pull + retag locally to
+   the exact tags the compose file expects, so `docker compose up` (no
+   `--build`) uses the already-present images rather than rebuilding from
+   source — matches the story's own "registry access from the VM" scope.
+3. **Fixed a real pre-existing bug before using it:** `docker-compose.yml`
+   reused one shared `${IMAGE_TAG}` across all six services, but frontend's
+   tag numbering (`0.0.x`) is genuinely independent of the backend five's
+   (`0.1.x`) — the identical single-shared-tag mistake already caught once
+   in Kubernetes (US-PLT-13/24, see `MEMORY.md`). Fixed with a separate
+   `${FRONTEND_IMAGE_TAG}` variable rather than a local re-tag workaround
+   (CLAUDE.md: find root causes, no temporary fixes).
+4. **Docker install on `vm-baseline-app` is new baseline work** — nothing
+   there today but Python 3.12/venv/Nginx (US-PLT-20). This is the
+   asymmetry already flagged in US-PLT-22's deployment-time writeup.
+5. **Stop, don't delete, Stage 1.** `bookstore-monolith` (systemd) and the
+   host Nginx both need to stop — Compose's `frontend` container claims host
+   port 80 too. Stop/disable only; leave the venv/build/systemd unit intact
+   so Stage 1 can be started again later for the live demo (per
+   `sprint-plan.md`'s "Final demo storyline" — Stage 1 has to come back for
+   the exam, and a `switch-to-stage1.sh`/`switch-to-stage2.sh` pair is
+   already flagged there as a near-term follow-up once this story lands).
+6. **Fresh secrets for Stage 2**, not reused from Stage 1 — different
+   deployment, independent security domain, same practice as every prior
+   VM story.
+7. **Docker's `insecure-registries` trust config** needed in
+   `/etc/docker/daemon.json` before `docker pull` from a non-TLS registry
+   works — the Docker-daemon equivalent of the containerd `certs.d` trust
+   config already done for the k8s nodes in US-PLT-23.
 
 ## Plan
 
-### Kubernetes-side manifests (agent writes, user applies)
+### Compose file (agent writes/fixes)
+- [x] `deploy/docker/docker-compose.yml` — `FRONTEND_IMAGE_TAG` fix (done
+      above, before anything else touches this file).
 
-- [x] Add `netpol: postgres-client` to the pod template labels in
-      `21-identity.yaml`, `22-catalog.yaml`, `23-inventory.yaml`,
-      `25-order.yaml` (Deployments) and to all four Jobs in
-      `15-migration-jobs.yaml`.
-- [x] Add `netpol: redis-client` to the pod template labels in
-      `24-cart.yaml`.
-- [x] New `deploy/kubernetes/33-network-policies.yaml`:
-      - `postgres-allow-authorized`: `podSelector: {app: postgres}`,
-        `policyTypes: [Ingress]`, ingress allowed from
-        `podSelector: {netpol: postgres-client}` on `port: 5432/TCP`.
-      - `redis-allow-authorized`: `podSelector: {app: redis}`,
-        `policyTypes: [Ingress]`, ingress allowed from
-        `podSelector: {netpol: redis-client}` on `port: 6379/TCP`.
-      (No `namespaceSelector` needed — a bare `podSelector` in a
-      `NetworkPolicy.spec.ingress[].from` only matches pods in the policy's
-      own namespace, and everything here lives in `bookstore`.)
-- [x] New `deploy/kubernetes/US-PLT-19-network-policy-test-pod.yaml` — a
-      throwaway pod with no `netpol` label (same disposable-manifest
-      pattern as `infrastructure/kubeadm/network-test-pods.yaml` from
-      US-PLT-10), used for the negative test below, applied then deleted.
+### Runbook (agent writes, user executes against the real VM)
+- [x] `deploy/baseline-vm/US-PLT-21-runbook.md` written (Parts A-G below):
+  - Part A: stop Stage 1 (`systemctl stop bookstore-monolith`, stop Nginx),
+    confirm port 80 free.
+  - Part B: install Docker + Compose plugin on `vm-baseline-app`; configure
+    `insecure-registries` for `172.16.200.23:5000`.
+  - Part C: copy `deploy/docker/` to the VM; write a fresh `.env` (new
+    generated secrets, `IMAGE_TAG=0.1.1-a08a02d`,
+    `FRONTEND_IMAGE_TAG=0.0.0-1c39d25`).
+  - Part D: pull all six images from the registry, retag locally to match
+    what compose expects, confirm no `build:` gets triggered.
+  - Part E: `docker compose up -d`, confirm all migration/seed jobs exit 0
+    and all services reach healthy.
+  - Part F: full customer-journey walkthrough (register → browse → cart →
+    checkout → order history) against `http://172.16.200.24/` — AC#1.
+  - Part G: record versions (image digests, commit hash) for the fairness
+    control (PMP 17.4) — AC#2.
 
-### Runbook + verification (`deploy/kubernetes/US-PLT-19-runbook.md`, user
-executes on the live cluster per this project's collaboration pattern)
-
-- [x] Runbook written (`deploy/kubernetes/US-PLT-19-runbook.md`) — notes
-      that `15-migration-jobs.yaml` doesn't need (can't be) re-applied
-      since its Jobs already ran to completion; re-applies
-      `21/22/23/24/25.yaml` and `33-network-policies.yaml`.
-- [ ] AC#1 (positive): from an Identity pod, confirm `psql`/`pg_isready`
-      (or a quick `nc -zv postgres-service 5432`) still succeeds; from the
-      Cart pod, confirm `redis-cli -a $REDIS_PASSWORD -h redis-service
-      ping` still returns `PONG`.
-- [ ] AC#2 (negative): apply the throwaway test pod (unlabeled), confirm
-      `nc -zv postgres-service 5432` and `nc -zv redis-service 6379` from
-      inside it both time out/refuse; delete the test pod afterward.
-- [ ] Full customer-journey regression (register → browse → cart →
-      checkout → order history) to confirm the allow-rules didn't break
-      real app-to-DB/cache traffic.
-- [ ] Update `documents/backlog/sprint-plan.md` (Period 4 table + points
-      tally: 33/33) and project `MEMORY.md`.
+### Evidence + writeup
+- [ ] Screenshot/confirm the full journey; save under
+      `evidence/baseline-comparison/` alongside US-PLT-22's Stage 1 evidence.
+- [ ] Update `documents/backlog/sprint-plan.md` (Period 5 table) and
+      project `MEMORY.md`.
+- [ ] Flag (not yet build, unless asked) the `switch-to-stage1.sh`/
+      `switch-to-stage2.sh` follow-up now that Stage 2 is real on this VM.
 
 ## Review
 
-**Done and verified — Period 4 complete at 33/33 points.**
-
-Part B: `netpol: postgres-client` landed on `identity`/`catalog`/
-`inventory`/`order` pods, `netpol: redis-client` on `cart`, both
-`postgres-allow-authorized`/`redis-allow-authorized` NetworkPolicies
-present with the correct `POD-SELECTOR` — confirmed via `kubectl get pods
---show-labels` / `kubectl get networkpolicy`.
-
-Part C (AC#1, positive): a Python socket connection from the live
-`identity` pod to `postgres-service:5432` and from the live `cart` pod to
-`redis-service:6379` both succeeded — authorized traffic unaffected.
-
-Part D (AC#2, negative): the throwaway unlabeled `netpol-test` pod, applied
-in the same `bookstore` namespace specifically to prove the block is
-label-driven and not a namespace artifact, timed out on both `nc -zv
-postgres-service 5432` and `nc -zv redis-service 6379`. Deleted afterward.
-
-Part E: full customer-journey regression (register → browse → cart →
-checkout → order history) through the Ingress passed with no regressions.
-
-No infrastructure bugs found this time — the first Period 4 story to close
-clean on the first pass, unlike US-PLT-13/18 which each surfaced real bugs
-against the live VMs. `documents/backlog/sprint-plan.md` and the project's
-`MEMORY.md` updated to reflect Period 4's completion.
+(pending — fill in after execution)

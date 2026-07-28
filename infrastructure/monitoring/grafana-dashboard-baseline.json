@@ -1,0 +1,73 @@
+{
+  "title": "TMU BookVerse - Baseline VM Observability (Stage 1 / Stage 2, US-PLT-22)",
+  "uid": "us-plt-22-baseline-vm-observability",
+  "schemaVersion": 39,
+  "timezone": "browser",
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "panels": [
+    { "id": 1, "type": "row", "title": "Environment summary", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 } },
+    {
+      "id": 2, "type": "stat", "title": "Baseline VM targets Up (vm-baseline-app / vm-baseline-db)",
+      "gridPos": { "h": 4, "w": 12, "x": 0, "y": 1 },
+      "targets": [{ "expr": "sum(up{vm=~\"vm-baseline-app|vm-baseline-db\"})", "legendFormat": "targets Up" }, { "expr": "count(up{vm=~\"vm-baseline-app|vm-baseline-db\"})", "legendFormat": "targets configured" }]
+    },
+    {
+      "id": 3, "type": "stat", "title": "Active load test (k6 VUs)",
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 1 },
+      "description": "Same k6 remote-write source as the Stage 3 dashboard (US-PLT-18) - not stage-filterable at the metric level, so only run one stage's k6 test at a time and rely on the screenshot's own timestamp to identify which run this was.",
+      "targets": [{ "expr": "k6_vus", "legendFormat": "VUs" }]
+    },
+
+    { "id": 10, "type": "row", "title": "Load and outcome (k6, during a test run)", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 } },
+    {
+      "id": 11, "type": "timeseries", "title": "Virtual users (VUs)",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 6 },
+      "targets": [{ "expr": "k6_vus", "legendFormat": "VUs" }]
+    },
+    {
+      "id": 12, "type": "timeseries", "title": "Requests per second",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 6 },
+      "targets": [{ "expr": "sum(rate(k6_http_reqs_total[1m]))", "legendFormat": "RPS" }]
+    },
+    {
+      "id": 13, "type": "timeseries", "title": "p99 latency (unweighted avg across k6's per-request-type series - no p50/p95, and no true recomputed global percentile; see panel description)",
+      "description": "k6 exports one k6_http_req_duration_p99 series per unique (url, method, status, scenario, ...) tag combination - this script deliberately varies the request URL (page/category/search), so a bare metric name here fragments into many identically-legended lines. avg() collapses them to one line as an approximation of the blended p99, not a mathematically recomputed global percentile (k6's remote-write doesn't export the underlying histogram needed for that).",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 6 },
+      "targets": [{ "expr": "avg(k6_http_req_duration_p99)", "legendFormat": "p99 (blended)" }]
+    },
+    {
+      "id": 14, "type": "timeseries", "title": "Error rate % (unweighted avg across k6's per-request-type series)",
+      "description": "Same per-tag-combination fragmentation as the p99 panel. avg() is unweighted across request types - doesn't account for differing request volume per type.",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 6 },
+      "targets": [{ "expr": "avg(k6_http_req_failed_rate) * 100", "legendFormat": "error rate % (blended)" }]
+    },
+
+    { "id": 20, "type": "row", "title": "Resources (vm-baseline-app / vm-baseline-db only)", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 12 } },
+    {
+      "id": 21, "type": "timeseries", "title": "VM CPU utilization",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 13 },
+      "targets": [{ "expr": "100 - (avg by (vm) (rate(node_cpu_seconds_total{mode=\"idle\", vm=~\"vm-baseline-app|vm-baseline-db\"}[1m])) * 100)", "legendFormat": "{{vm}}" }]
+    },
+    {
+      "id": 22, "type": "timeseries", "title": "VM memory used %",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 13 },
+      "targets": [{ "expr": "100 * (1 - (node_memory_MemAvailable_bytes{vm=~\"vm-baseline-app|vm-baseline-db\"} / node_memory_MemTotal_bytes{vm=~\"vm-baseline-app|vm-baseline-db\"}))", "legendFormat": "{{vm}}" }]
+    },
+
+    { "id": 30, "type": "row", "title": "Storage / network (vm-baseline-app / vm-baseline-db only)", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 19 } },
+    {
+      "id": 31, "type": "timeseries", "title": "Disk use % (root filesystem)",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 20 },
+      "targets": [{ "expr": "100 * (1 - (node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay\", vm=~\"vm-baseline-app|vm-baseline-db\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay\", vm=~\"vm-baseline-app|vm-baseline-db\"}))", "legendFormat": "{{vm}}:{{mountpoint}}" }]
+    },
+    {
+      "id": 32, "type": "timeseries", "title": "Network throughput",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 20 },
+      "targets": [
+        { "expr": "rate(node_network_receive_bytes_total{device!~\"lo|docker.*|veth.*\", vm=~\"vm-baseline-app|vm-baseline-db\"}[1m])", "legendFormat": "{{vm}} rx" },
+        { "expr": "rate(node_network_transmit_bytes_total{device!~\"lo|docker.*|veth.*\", vm=~\"vm-baseline-app|vm-baseline-db\"}[1m])", "legendFormat": "{{vm}} tx" }
+      ]
+    }
+  ]
+}

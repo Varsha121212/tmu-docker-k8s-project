@@ -226,7 +226,11 @@ services:
 
   frontend:
     build: ../../apps/frontend
-    image: bookstore/frontend:${IMAGE_TAG}
+    # Frontend's own tag numbering (0.0.x) is genuinely independent of the
+    # five backend services' (0.1.x) - the same single-shared-tag mistake
+    # already caught once in Kubernetes (US-PLT-13/24, see MEMORY.md) is
+    # avoided here with its own variable rather than reusing ${IMAGE_TAG}.
+    image: bookstore/frontend:${FRONTEND_IMAGE_TAG}
     ports:
       - "80:8080"
     depends_on:

@@ -1,0 +1,204 @@
+{
+    "metrics": {
+        "http_req_duration": {
+            "avg": 407.07886237306394,
+            "min": 10.0956,
+            "med": 173.9159,
+            "max": 1870.4224,
+            "p(90)": 1129.9659900000001,
+            "p(95)": 1249.6753349999994
+        },
+        "data_received": {
+            "count": 4294641,
+            "rate": 14125.575212149159
+        },
+        "data_sent": {
+            "count": 820565,
+            "rate": 2698.9340026226114
+        },
+        "http_req_sending": {
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0.04829144842330303,
+            "min": 0,
+            "med": 0,
+            "max": 15.1833
+        },
+        "http_req_receiving": {
+            "p(90)": 9.012530000000002,
+            "p(95)": 11.361209999999998,
+            "avg": 2.870330812399785,
+            "min": 0,
+            "med": 0.8409,
+            "max": 271.014
+        },
+        "http_reqs": {
+            "count": 3742,
+            "rate": 12.307874498441699
+        },
+        "vus": {
+            "value": 1,
+            "min": 0,
+            "max": 10
+        },
+        "http_req_blocked": {
+            "avg": 0.0890359967931587,
+            "min": 0,
+            "med": 0,
+            "max": 25.9812,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "http_req_duration{expected_response:true}": {
+            "min": 10.0956,
+            "med": 173.9159,
+            "max": 1870.4224,
+            "p(90)": 1129.9659900000001,
+            "p(95)": 1249.6753349999994,
+            "avg": 407.07886237306394
+        },
+        "http_req_tls_handshaking": {
+            "med": 0,
+            "max": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0,
+            "min": 0
+        },
+        "checks": {
+            "passes": 3742,
+            "fails": 0,
+            "value": 1
+        },
+        "http_req_failed": {
+            "fails": 3742,
+            "passes": 0,
+            "thresholds": {
+                "rate<0.01": false
+            },
+            "value": 0
+        },
+        "vus_max": {
+            "value": 10,
+            "min": 10,
+            "max": 10
+        },
+        "http_req_waiting": {
+            "min": 10.0956,
+            "med": 172.66705000000002,
+            "max": 1869.7836,
+            "p(90)": 1126.7769700000001,
+            "p(95)": 1248.4134599999995,
+            "avg": 404.1602401122396
+        },
+        "iteration_duration": {
+            "avg": 2030.0823980405414,
+            "min": 1215.2184,
+            "med": 2126.4943000000003,
+            "max": 2971.3778,
+            "p(90)": 2464.05128,
+            "p(95)": 2553.684205
+        },
+        "http_req_connecting": {
+            "p(95)": 0,
+            "avg": 0.07150900587920897,
+            "min": 0,
+            "med": 0,
+            "max": 25.9812,
+            "p(90)": 0
+        },
+        "iterations": {
+            "count": 1480,
+            "rate": 4.867892639682981
+        }
+    },
+    "setup_data": {
+        "users": [
+            {
+                "password": "LoadTest123!",
+                "email": "us-plt-22-loadtest-1785128559533-0@us-plt-22-loadtest.internal"
+            },
+            {
+                "email": "us-plt-22-loadtest-1785128559533-1@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            },
+            {
+                "email": "us-plt-22-loadtest-1785128559533-2@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            },
+            {
+                "email": "us-plt-22-loadtest-1785128559533-3@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            },
+            {
+                "email": "us-plt-22-loadtest-1785128559533-4@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            },
+            {
+                "email": "us-plt-22-loadtest-1785128559533-5@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            },
+            {
+                "email": "us-plt-22-loadtest-1785128559533-6@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            },
+            {
+                "email": "us-plt-22-loadtest-1785128559533-7@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            },
+            {
+                "password": "LoadTest123!",
+                "email": "us-plt-22-loadtest-1785128559533-8@us-plt-22-loadtest.internal"
+            },
+            {
+                "email": "us-plt-22-loadtest-1785128559533-9@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            }
+        ]
+    },
+    "root_group": {
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {
+            "setup": {
+                "name": "setup",
+                "path": "::setup",
+                "id": "5c0f8025f7e0b6654089e5b00e950f1a",
+                "groups": {},
+                "checks": {
+                        "setup register is 201": {
+                            "passes": 10,
+                            "fails": 0,
+                            "name": "setup register is 201",
+                            "path": "::setup::setup register is 201",
+                            "id": "532a243b4010c95ecd878c642e619a78"
+                        }
+                    }
+            }
+        },
+        "checks": {
+            "login status is 200": {
+                "name": "login status is 200",
+                "path": "::login status is 200",
+                "id": "baba87e761865dc93085ee0c1fe25f4c",
+                "passes": 1480,
+                "fails": 0
+            },
+            "catalogue status is 200": {
+                "id": "0af77d3cc3896118ea28aa422ae16e13",
+                "passes": 1480,
+                "fails": 0,
+                "name": "catalogue status is 200",
+                "path": "::catalogue status is 200"
+            },
+            "cart add status is 201": {
+                "path": "::cart add status is 201",
+                "id": "f5d34de95851770c4aff1938e625f291",
+                "passes": 772,
+                "fails": 0,
+                "name": "cart add status is 201"
+            }
+        }
+    }
+}
