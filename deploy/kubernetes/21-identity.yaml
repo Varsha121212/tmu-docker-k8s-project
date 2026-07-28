@@ -42,13 +42,22 @@ spec:
             periodSeconds: 20
             timeoutSeconds: 3
             failureThreshold: 3
+          # Memory raised 128Mi/256Mi -> 256Mi/512Mi after a real OOMKill
+          # crash-loop found during US-PLT-22's Stage 3 P2 baseline test
+          # (10 concurrent logins): argon2-cffi's PasswordHasher() default
+          # memory_cost is 65536 KiB (64 MiB) per hash operation - even 3-4
+          # concurrent logins' hashing buffers alone approached the old
+          # 256Mi limit, on top of the base Python/FastAPI/uvicorn
+          # footprint. Confirmed via `kubectl describe pod` showing
+          # Reason: OOMKilled, Exit Code: 137, restart count climbing
+          # through a sustained crash-loop for the whole test window.
           resources:
             requests:
               cpu: 100m
-              memory: 128Mi
+              memory: 256Mi
             limits:
               cpu: 300m
-              memory: 256Mi
+              memory: 512Mi
 ---
 apiVersion: v1
 kind: Service

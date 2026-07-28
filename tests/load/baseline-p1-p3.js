@@ -1,7 +1,11 @@
-// US-PLT-22: Stage 1 (VM-hosted monolith) baseline comparison scenarios,
-// PMP section 15.4 — P1 (warm-up), P2 (normal), P3 (moderate). Targets
-// vm-baseline-app's real public entry point (Nginx on :80), not the app's
-// internal 127.0.0.1:8000, matching how real traffic reaches Stage 1.
+// US-PLT-22 (originally): stage-neutral P1/P2/P3 baseline comparison
+// scenarios, PMP section 15.4 — P1 (warm-up), P2 (normal), P3 (moderate).
+// Originally written for Stage 1 (renamed from stage1-baseline-p1-p3.js once
+// reused for Stage 2/Stage 3 - same script, same dataset, same request mix,
+// only BASE_URL changes - PMP 17.4's fairness control). Point BASE_URL at
+// whichever stage's real public entry point: Stage 1/2 - the VM's Nginx/
+// frontend container on :80 (not the app's internal 127.0.0.1:8000 or
+// container port); Stage 3 - the Ingress NodePort.
 //
 // P1/P3 reuse the catalogue-heavy request mix already proven in
 // catalog-hpa-load-test.js (Period 4). P2 adds the "mixed browse/login/cart"
@@ -10,9 +14,10 @@
 // instead of re-registering — and 409-conflicting — on every loop).
 //
 // Usage:
-//   k6 run -e SCENARIO=p1 --out experimental-prometheus-rw ^
-//     -e K6_PROMETHEUS_RW_SERVER_URL=http://172.16.200.23:9090/api/v1/write ^
-//     tests/load/stage1-baseline-p1-p3.js
+//   k6 run -e SCENARIO=p1 -e BASE_URL=http://<stage-entrypoint> \
+//     --out experimental-prometheus-rw \
+//     -e K6_PROMETHEUS_RW_SERVER_URL=http://172.16.200.23:9090/api/v1/write \
+//     tests/load/baseline-p1-p3.js
 // SCENARIO is p1, p2, or p3 (default p2). VUS/DURATION can be overridden for
 // re-tuning, same pattern as catalog-hpa-load-test.js's env-var overrides —
 // PMP 15.4's own numbers (5/3m, 10/5m, 25/8m) are the defaults.

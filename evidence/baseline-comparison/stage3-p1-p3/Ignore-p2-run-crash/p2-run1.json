@@ -1,0 +1,197 @@
+{
+    "metrics": {
+        "vus": {
+            "value": 9,
+            "min": 0,
+            "max": 10
+        },
+        "http_req_receiving": {
+            "min": 0,
+            "med": 0,
+            "max": 319.5812,
+            "p(90)": 4.9834,
+            "p(95)": 6.887075,
+            "avg": 1.5735622291590157
+        },
+        "data_received": {
+            "count": 4215132,
+            "rate": 13548.108603290282
+        },
+        "http_req_waiting": {
+            "p(90)": 47.5459,
+            "p(95)": 69.735875,
+            "avg": 51.792270033051956,
+            "min": 0.9283,
+            "med": 24.929000000000002,
+            "max": 2824.6265
+        },
+        "iteration_duration": {
+            "min": 1027.7346,
+            "med": 1053.98985,
+            "max": 4180.2893,
+            "p(90)": 1093.4808,
+            "p(95)": 1153.6516800000002,
+            "avg": 1105.6997954378214
+        },
+        "iterations": {
+            "count": 2718,
+            "rate": 8.736086837551703
+        },
+        "http_req_connecting": {
+            "avg": 0.03742453176643408,
+            "min": 0,
+            "med": 0,
+            "max": 23.0004,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "http_reqs": {
+            "count": 5446,
+            "rate": 17.50431527494723
+        },
+        "http_req_duration{expected_response:true}": {
+            "p(95)": 75.2845,
+            "avg": 43.397353848973644,
+            "min": 7.7373,
+            "med": 32.42095,
+            "max": 1144.4024,
+            "p(90)": 55.04108000000003
+        },
+        "data_sent": {
+            "count": 954375,
+            "rate": 3067.513935095072
+        },
+        "http_req_tls_handshaking": {
+            "p(95)": 0,
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0
+        },
+        "http_req_blocked": {
+            "avg": 0.045496529562982,
+            "min": 0,
+            "med": 0,
+            "max": 23.0004,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "http_req_failed": {
+            "passes": 2718,
+            "fails": 2728,
+            "thresholds": {
+                "rate<0.01": true
+            },
+            "value": 0.4990818949687844
+        },
+        "vus_max": {
+            "value": 10,
+            "min": 10,
+            "max": 10
+        },
+        "http_req_sending": {
+            "max": 14.9109,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0.03534737421961071,
+            "min": 0,
+            "med": 0
+        },
+        "http_req_duration": {
+            "max": 2824.6265,
+            "p(90)": 48.41375,
+            "p(95)": 70.97775,
+            "avg": 53.401179636430555,
+            "min": 0.9283,
+            "med": 26.8786
+        },
+        "checks": {
+            "passes": 2728,
+            "fails": 2718,
+            "value": 0.5009181050312156
+        }
+    },
+    "setup_data": {
+        "users": [
+            {
+                "email": "us-plt-22-loadtest-1785213309819-0@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            },
+            {
+                "email": "us-plt-22-loadtest-1785213309819-1@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            },
+            {
+                "email": "us-plt-22-loadtest-1785213309819-2@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            },
+            {
+                "email": "us-plt-22-loadtest-1785213309819-3@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            },
+            {
+                "password": "LoadTest123!",
+                "email": "us-plt-22-loadtest-1785213309819-4@us-plt-22-loadtest.internal"
+            },
+            {
+                "email": "us-plt-22-loadtest-1785213309819-5@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            },
+            {
+                "email": "us-plt-22-loadtest-1785213309819-6@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            },
+            {
+                "email": "us-plt-22-loadtest-1785213309819-7@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            },
+            {
+                "email": "us-plt-22-loadtest-1785213309819-8@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            },
+            {
+                "email": "us-plt-22-loadtest-1785213309819-9@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            }
+        ]
+    },
+    "root_group": {
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {
+            "setup": {
+                "name": "setup",
+                "path": "::setup",
+                "id": "5c0f8025f7e0b6654089e5b00e950f1a",
+                "groups": {},
+                "checks": {
+                        "setup register is 201": {
+                            "path": "::setup::setup register is 201",
+                            "id": "532a243b4010c95ecd878c642e619a78",
+                            "passes": 10,
+                            "fails": 0,
+                            "name": "setup register is 201"
+                        }
+                    }
+            }
+        },
+        "checks": {
+            "login status is 200": {
+                "id": "baba87e761865dc93085ee0c1fe25f4c",
+                "passes": 0,
+                "fails": 2718,
+                "name": "login status is 200",
+                "path": "::login status is 200"
+            },
+            "catalogue status is 200": {
+                "id": "0af77d3cc3896118ea28aa422ae16e13",
+                "passes": 2718,
+                "fails": 0,
+                "name": "catalogue status is 200",
+                "path": "::catalogue status is 200"
+            }
+        },
+        "name": "",
+        "path": ""
+    }
+}

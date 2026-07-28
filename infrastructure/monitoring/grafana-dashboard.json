@@ -42,14 +42,16 @@
       "targets": [{ "expr": "sum(rate(k6_http_reqs_total[1m]))", "legendFormat": "RPS" }]
     },
     {
-      "id": 13, "type": "timeseries", "title": "p99 latency (k6's default trend stat - no p50/p95 series exist unless K6_PROMETHEUS_RW_TREND_STATS is set to export them)",
+      "id": 13, "type": "timeseries", "title": "p99 latency (unweighted avg across k6's per-request-type series - no p50/p95, and no true recomputed global percentile; see panel description)",
+      "description": "k6 exports one k6_http_req_duration_p99 series per unique (url, method, status, scenario, ...) tag combination - any script that varies the request URL fragments into many identically-legended lines without this aggregation (found for real during US-PLT-22's Stage 1 runs, fixed there first in grafana-dashboard-baseline.json). avg() collapses them to one line as an approximation of the blended p99, not a mathematically recomputed global percentile.",
       "gridPos": { "h": 6, "w": 6, "x": 12, "y": 6 },
-      "targets": [{ "expr": "k6_http_req_duration_p99", "legendFormat": "p99" }]
+      "targets": [{ "expr": "avg(k6_http_req_duration_p99)", "legendFormat": "p99 (blended)" }]
     },
     {
-      "id": 14, "type": "timeseries", "title": "Error rate %",
+      "id": 14, "type": "timeseries", "title": "Error rate % (unweighted avg across k6's per-request-type series)",
+      "description": "Same per-tag-combination fragmentation as the p99 panel. avg() is unweighted across request types - doesn't account for differing request volume per type.",
       "gridPos": { "h": 6, "w": 6, "x": 18, "y": 6 },
-      "targets": [{ "expr": "k6_http_req_failed_rate * 100", "legendFormat": "error rate %" }]
+      "targets": [{ "expr": "avg(k6_http_req_failed_rate) * 100", "legendFormat": "error rate % (blended)" }]
     },
 
     { "id": 20, "type": "row", "title": "Resources (VM / node / pod CPU and memory)", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 12 } },

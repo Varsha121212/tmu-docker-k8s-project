@@ -166,3 +166,29 @@ documented versions rather than an accidental drift.
 
 Report back once Part F's journey is confirmed and I'll mark US-PLT-21 done
 and update `sprint-plan.md`/`MEMORY.md`.
+
+## Post-deploy fix: frontend HEALTHCHECK bug (found and fixed after Part E)
+
+First run showed `frontend` as `Up ... (unhealthy)` in `docker compose ps`
+despite the full customer journey already working (confirmed in
+`docker logs bookstore-frontend-1` — real 200/201s for register/login/cart/
+checkout/order-history). Root cause: `apps/frontend/Dockerfile`'s
+`HEALTHCHECK` used unqualified `http://localhost:8080/`; this image's Alpine
+resolver resolves `localhost` to `::1` first, and nginx only listens on
+`0.0.0.0:8080` (IPv4) — confirmed via `ss -tln` inside the container and a
+forced-IPv4 `wget http://127.0.0.1:8080/` succeeding instantly. A
+pre-existing bug since Period 2, never caught because nothing in Compose
+`depends_on: frontend`, so it was never actually blocking. Kubernetes'
+`httpGet` probes bypass this entirely (kubelet hits the pod IP directly, not
+through the container's own `wget`), so Stage 3 was never affected and
+wasn't touched.
+
+**Fix applied (Stage 2 only, by user's own choice — not redeployed to
+Kubernetes since there's nothing there to fix):**
+```sh
+REGISTRY=172.16.200.23:5000 deploy/docker/scripts/build-scan-push.sh frontend
+```
+New image: `bookstore/frontend:0.0.0-57a1e9e` (commit `57a1e9e`, the commit
+containing the Dockerfile fix). Pulled/retagged on `vm-baseline-app`,
+`.env`'s `FRONTEND_IMAGE_TAG` updated, `docker compose up -d frontend` —
+confirmed `Up ... (healthy)`.

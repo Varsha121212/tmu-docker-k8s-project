@@ -9,7 +9,8 @@ writeup). No image digest — Stage 1 has no container images.
 ## Fairness controls applied (PMP 17.4)
 
 - Same load-generator: the user's laptop, native k6, for every run.
-- Same script (`tests/load/stage1-baseline-p1-p3.js`), same request mix and
+- Same script (`tests/load/baseline-p1-p3.js`, later renamed from
+  `stage1-baseline-p1-p3.js` once reused for Stage 2/Stage 3), same request mix and
   duration per scenario, across all 3 repeats of P1/P2/P3.
 - Same dataset: the 16-book catalog seeded in Period 1/3 — **not** reset to a
   clean slate; Postgres/Redis have been live since Period 3 testing and this

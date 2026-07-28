@@ -187,10 +187,12 @@ For each scenario and each repeat:
 ```sh
 k6 run -e SCENARIO=p1 --out experimental-prometheus-rw ^
   -e K6_PROMETHEUS_RW_SERVER_URL=http://172.16.200.23:9090/api/v1/write ^
-  tests/load/stage1-baseline-p1-p3.js
+  tests/load/baseline-p1-p3.js
 ```
-(swap `SCENARIO=p1` for `p2` / `p3` — durations are 3 min / 5 min / 8 min
-respectively, VUs 5 / 10 / 25, both already the script's defaults.)
+(renamed from `stage1-baseline-p1-p3.js` once reused for Stage 2/Stage 3 —
+same script, only `BASE_URL` changes per stage; swap `SCENARIO=p1` for `p2` /
+`p3` — durations are 3 min / 5 min / 8 min respectively, VUs 5 / 10 / 25,
+both already the script's defaults.)
 
 While each run is in progress:
 - Watch `http://172.16.200.23:3000` (Grafana), the new **Baseline VM

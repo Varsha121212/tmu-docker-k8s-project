@@ -1,3 +1,4 @@
+import threading
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -11,14 +12,26 @@ from app.core.config import get_settings
 _hasher = PasswordHasher()
 _bearer_scheme = HTTPBearer(auto_error=False)
 
+# Found via a real OOMKill crash-loop during US-PLT-22's Stage 3 load test:
+# argon2-cffi's default memory_cost is 65536 KiB (64 MiB) *per hash call*,
+# and FastAPI runs this sync function in a background thread pool with no
+# concurrency cap of its own - enough simultaneous login/register requests
+# can drive memory need arbitrarily high (a resource-exhaustion risk any
+# client could trigger, not just a load-test artifact). Bounding concurrent
+# hashing to 4 keeps worst-case hashing memory at ~256 MiB, comfortably
+# under the container's 512Mi limit alongside the base process footprint.
+_hash_concurrency = threading.Semaphore(4)
+
 
 def hash_password(plain_password: str) -> str:
-    return _hasher.hash(plain_password)
+    with _hash_concurrency:
+        return _hasher.hash(plain_password)
 
 
 def verify_password(plain_password: str, password_hash: str) -> bool:
     try:
-        return _hasher.verify(password_hash, plain_password)
+        with _hash_concurrency:
+            return _hasher.verify(password_hash, plain_password)
     except (VerifyMismatchError, VerificationError, InvalidHashError):
         return False
 
