@@ -1,0 +1,19 @@
+student@vm-master:~$ kubectl get pods -n bookstore -l app=catalog -w
+NAME                      READY   STATUS    RESTARTS   AGE
+catalog-dd84dd546-fk2cg   1/1     Running   0          13h
+catalog-dd84dd546-fk2cg   1/1     Terminating   0          13h
+catalog-dd84dd546-fk2cg   1/1     Terminating   0          13h
+catalog-dd84dd546-cqjxz   0/1     Pending       0          0s
+catalog-dd84dd546-cqjxz   0/1     Pending       0          0s
+catalog-dd84dd546-cqjxz   0/1     ContainerCreating   0          0s
+catalog-dd84dd546-cqjxz   0/1     ContainerCreating   0          1s
+catalog-dd84dd546-cqjxz   0/1     ContainerCreating   0          1s
+catalog-dd84dd546-cqjxz   0/1     Running             0          1s
+catalog-dd84dd546-fk2cg   1/1     Terminating         0          13h
+catalog-dd84dd546-fk2cg   0/1     Completed           0          13h
+catalog-dd84dd546-fk2cg   0/1     Completed           0          13h
+catalog-dd84dd546-fk2cg   0/1     Completed           0          13h
+catalog-dd84dd546-cqjxz   1/1     Running             0          12s
+catalog-dd84dd546-cqjxz   1/1     Running             0          12s
+
+

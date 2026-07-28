@@ -1,4 +1,4 @@
-# Stage 3 baseline comparison metrics (P1-P3)
+# US-PLT-26 Runbook: Stage 3 baseline comparison metrics (P1-P3)
 
 Target: the kubeadm cluster via Ingress (`http://172.16.200.20:30080`).
 Load generator: your laptop, same k6 script as Stage 1/2

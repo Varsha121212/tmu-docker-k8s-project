@@ -9,6 +9,14 @@
 # scale-down stabilizationWindowSeconds is left at the (unstated-but-
 # effective) cluster default of 300s rather than pinned here, so a brief
 # load dip doesn't immediately thrash replicas back down.
+#
+# US-PLT-17: explicit RollingUpdate strategy rather than the implicit
+# cluster default. At replicas:1, the default (25% of 1, rounded) already
+# computes to the same maxSurge:1/maxUnavailable:0 - pinning it here just
+# makes the "no sustained outage" guarantee readable without a reader
+# having to redo that rounding math themselves. maxUnavailable:0 is the
+# part that actually matters: the old pod isn't terminated until the new
+# one is Ready, so a single-replica Deployment still rolls with zero gap.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -16,6 +24,11 @@ metadata:
   namespace: bookstore
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: catalog

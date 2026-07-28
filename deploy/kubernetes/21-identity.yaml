@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: identity
-          image: 172.16.200.23:5000/bookstore/identity:0.1.1-a08a02d
+          image: 172.16.200.23:5000/bookstore/identity:0.1.1-af12e77
           ports:
             - containerPort: 8000
           envFrom:

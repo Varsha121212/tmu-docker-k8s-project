@@ -1,0 +1,204 @@
+{
+    "root_group": {
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {
+            "setup": {
+                "name": "setup",
+                "path": "::setup",
+                "id": "5c0f8025f7e0b6654089e5b00e950f1a",
+                "groups": {},
+                "checks": {
+                        "setup register is 201": {
+                            "name": "setup register is 201",
+                            "path": "::setup::setup register is 201",
+                            "id": "532a243b4010c95ecd878c642e619a78",
+                            "passes": 10,
+                            "fails": 0
+                        }
+                    }
+            }
+        },
+        "checks": {
+            "login status is 200": {
+                "fails": 0,
+                "name": "login status is 200",
+                "path": "::login status is 200",
+                "id": "baba87e761865dc93085ee0c1fe25f4c",
+                "passes": 277
+            },
+            "catalogue status is 200": {
+                "fails": 0,
+                "name": "catalogue status is 200",
+                "path": "::catalogue status is 200",
+                "id": "0af77d3cc3896118ea28aa422ae16e13",
+                "passes": 277
+            },
+            "cart add status is 201": {
+                "name": "cart add status is 201",
+                "path": "::cart add status is 201",
+                "id": "f5d34de95851770c4aff1938e625f291",
+                "passes": 142,
+                "fails": 0
+            }
+        },
+        "name": ""
+    },
+    "metrics": {
+        "data_received": {
+            "rate": 1846.4883348434407,
+            "count": 588327
+        },
+        "http_req_connecting": {
+            "med": 0,
+            "max": 40.9997,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0.5958386685552408,
+            "min": 0
+        },
+        "http_req_tls_handshaking": {
+            "p(95)": 0,
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0
+        },
+        "http_req_waiting": {
+            "avg": 3934.4404909348436,
+            "min": 13.3439,
+            "med": 511.07959999999997,
+            "max": 15723.4076,
+            "p(90)": 10515.5818,
+            "p(95)": 11070.633975
+        },
+        "http_req_duration": {
+            "avg": 3939.4950262039647,
+            "min": 13.3439,
+            "med": 520.0174,
+            "max": 15723.4076,
+            "p(90)": 10526.7483,
+            "p(95)": 11079.206725
+        },
+        "iterations": {
+            "count": 277,
+            "rate": 0.8693758211872531
+        },
+        "http_req_failed": {
+            "passes": 0,
+            "fails": 706,
+            "thresholds": {
+                "rate<0.01": false
+            },
+            "value": 0
+        },
+        "vus_max": {
+            "min": 10,
+            "max": 10,
+            "value": 10
+        },
+        "http_req_duration{expected_response:true}": {
+            "min": 13.3439,
+            "med": 520.0174,
+            "max": 15723.4076,
+            "p(90)": 10526.7483,
+            "p(95)": 11079.206725,
+            "avg": 3939.4950262039647
+        },
+        "http_reqs": {
+            "count": 706,
+            "rate": 2.215809854722746
+        },
+        "http_req_receiving": {
+            "min": 0,
+            "med": 1.3108499999999998,
+            "max": 346.7018,
+            "p(90)": 9.99475,
+            "p(95)": 13.585825,
+            "avg": 5.013102549575076
+        },
+        "iteration_duration": {
+            "med": 11032.2782,
+            "max": 17074.3132,
+            "p(90)": 12628.840760000001,
+            "p(95)": 13237.103739999999,
+            "avg": 11007.441331407934,
+            "min": 5619.0363
+        },
+        "data_sent": {
+            "count": 158703,
+            "rate": 498.0958518046232
+        },
+        "http_req_blocked": {
+            "max": 42.3825,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0.6074896600566573,
+            "min": 0,
+            "med": 0
+        },
+        "http_req_sending": {
+            "avg": 0.04143271954674221,
+            "min": 0,
+            "med": 0,
+            "max": 9.7106,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "checks": {
+            "passes": 706,
+            "fails": 0,
+            "value": 1
+        },
+        "vus": {
+            "value": 3,
+            "min": 0,
+            "max": 10
+        }
+    },
+    "setup_data": {
+        "users": [
+            {
+                "email": "us-plt-22-loadtest-1785217519972-0@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            },
+            {
+                "email": "us-plt-22-loadtest-1785217519972-1@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            },
+            {
+                "email": "us-plt-22-loadtest-1785217519972-2@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            },
+            {
+                "email": "us-plt-22-loadtest-1785217519972-3@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            },
+            {
+                "email": "us-plt-22-loadtest-1785217519972-4@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            },
+            {
+                "password": "LoadTest123!",
+                "email": "us-plt-22-loadtest-1785217519972-5@us-plt-22-loadtest.internal"
+            },
+            {
+                "email": "us-plt-22-loadtest-1785217519972-6@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            },
+            {
+                "email": "us-plt-22-loadtest-1785217519972-7@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            },
+            {
+                "email": "us-plt-22-loadtest-1785217519972-8@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            },
+            {
+                "email": "us-plt-22-loadtest-1785217519972-9@us-plt-22-loadtest.internal",
+                "password": "LoadTest123!"
+            }
+        ]
+    }
+}

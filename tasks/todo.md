@@ -1,18 +1,148 @@
-# Stage 2 / Stage 3 baseline comparison metrics (P1-P3)
+# US-PLT-17: Rolling update and rollback
 
-**Not a numbered backlog story** — per `sprint-plan.md`'s Period 5 notes,
-running P1-P3 against Stage 2/3 is "test execution time," the same bucket as
-the acceptance-test suite and the comparison writeup itself. Doing it now,
-before US-PLT-16/17's destructive tests, so the "normal/moderate load"
-baseline reflects steady state, not a just-recovered/just-rolled-out
-cluster — same "capture clean data before the environment gets perturbed"
-logic that put US-PLT-22 ahead of US-PLT-21, just without a hard deadline.
+**Story:** As a system administrator, I want to deploy a new image version
+using a rolling update with a documented rollback command, so that releases
+have no full outage and can be safely reverted.
+
+**Traces to:** BO-05, AT-09, SDD §15.3. (`user-stories.md` cites `NFR-06`,
+which doesn't exist anywhere in the BRD — checked directly against the
+`.docx`, since grep can't reach binary files. Flagged, not yet corrected in
+`user-stories.md`.) **Points:** 3.
+
+**Target: `catalog`**, continuing the reference-workload choice from
+US-PLT-14/15/16. Visible version marker = the image tag itself (a "label,"
+per AT-09's literal "v2 label or response" wording) — an earlier plan to
+also expose the version through the `/api/books/health/ready` response body
+was proposed, then dropped after the user correctly pointed out it
+introduced a redundant version channel (`ARG`→`ENV`) alongside
+`pyproject.toml`, which is already the single source of truth
+`build-scan-push.sh` reads from.
+
+## Plan
+- [x] `apps/services/catalog/pyproject.toml` — version `0.1.1` → `0.2.0`.
+- [x] `deploy/kubernetes/22-catalog.yaml` — explicit
+      `strategy.rollingUpdate.maxSurge: 1 / maxUnavailable: 0` (matches the
+      existing default at replicas:1, now readable without redoing the
+      rounding math).
+- [x] Catalog test suite re-run: 12/12 pass, unaffected by the version bump.
+- [x] Runbook written: `deploy/kubernetes/US-PLT-17-runbook.md` — two-commit
+      build/push/retag pattern (avoids the tag/commit-hash mismatch already
+      caught once in US-PLT-21), continuous availability-check log reused
+      from US-PLT-16 covering both the rollout and the rollback in one
+      unbroken log, `kubectl rollout status`/`rollout history` for direct
+      pass/fail signals, and an explicit flag about the manifest/live-state
+      drift `rollout undo` leaves behind.
+- [ ] User executes the runbook (commit → build/push → sync → rollout →
+      rollback), per the established collaboration pattern.
+- [ ] Evidence saved under `evidence/rolling-update/`.
+- [ ] `sprint-plan.md` and `MEMORY.md` updated once run and verified.
+
+## Review
+(Pending execution.)
+
+---
+
+# US-PLT-16: Self-healing validation
+
+**Story:** As a system administrator, I want to demonstrate that a deleted
+stateless application pod is automatically replaced, so that the project
+provides evidence of Kubernetes self-healing.
+
+**Traces to:** NFR-AVAIL-01, AT-08, section 15.2. Depends on US-PLT-14
+(probes, done) and US-PLT-13 (Deployments/Services, done). No manifest
+changes — this story exercises infrastructure that already exists.
+**Points:** 2.
+
+**Target: `catalog`** (single replica, stateless, already this project's
+reference workload for probe/HPA stories) — see the runbook's own header
+for the full reasoning on why a single-replica target gives the clearest,
+least-ambiguous recovery-time signal.
+
+## Plan
+- [x] Runbook written: `deploy/kubernetes/US-PLT-16-runbook.md` — confirm
+      clean 1-replica baseline, start a continuous ~1req/s availability
+      check against `/api/books/health/ready` through the Ingress (logged
+      to `evidence/self-healing/`), delete the pod, watch the replacement
+      come up via `kubectl get pods -w`, measure the outage window from the
+      availability log, compare against the 120s AC#1 threshold, and (AC#2)
+      a documented root-cause path if that threshold is ever exceeded.
+- [x] User executed the runbook against the real cluster (`vm-master` +
+      laptop, over the VPN).
+- [x] Evidence saved under `evidence/self-healing/` (availability-check log,
+      `kubectl get pods -w` transcript, two screenshots, metrics write-up).
+- [x] `sprint-plan.md` updated.
+
+## Review
+
+**Done and verified.** Pod `catalog-dd84dd546-fk2cg` deleted on `vm-master`;
+replacement (`catalog-dd84dd546-cqjxz`) rescheduled onto a **different
+worker node** (`vm-worker-2` → `vm-worker-1`) and reached `1/1 Ready` in
+**12.27s**, measured independently two ways that agree within kubectl's
+1-second AGE resolution: (1) the external availability-check log
+(first non-`200` at 19:59:32.551Z, first recovered `200` at 19:59:44.821Z),
+and (2) `kubectl get pods -w`'s own `AGE` column showing `1/1 Running` at
+`12s`. Well under AC#1's 120s threshold (~10x margin) — AC#2's defect-log
+path was never triggered. Full customer journey re-confirmed working
+through the Ingress afterward (Part G); every other workload's `RESTARTS`
+stayed at 0, confirming the test didn't disturb anything outside `catalog`.
+One non-defect observation logged for completeness: `ingress-nginx`
+returned one `502` then steady `503`s during the gap — normal
+zero-ready-endpoints behavior, not an application error.
+
+Full write-up: `evidence/self-healing/US-PLT-16-self-healing-metrics.md`.
+`documents/backlog/sprint-plan.md` updated (Period 5 now 16/19 pts,
+US-PLT-17 the only story remaining). `MEMORY.md` updated.
+
+---
+
+# US-PLT-25 / US-PLT-26: Stage 2 / Stage 3 baseline comparison metrics (P1-P3)
+
+**Correction (28 Jul):** originally treated as non-story "test execution
+time" per Period 5's own framing (see below) — the user caught this as a
+real gap, the same class as US-PLT-20/21/22/23/24 (real work happening
+without a backlog entry). Formally added as **US-PLT-25** (Stage 2, 3 pts)
+and **US-PLT-26** (Stage 3, 5 pts) in `user-stories.md` and `sprint-plan.md`
+— see those files' own change-control notes. Period 5 capacity check
+updated from "under capacity by design" to a **~1.3-1.9x overcommit flag**
+(19 pts committed vs 10-15 capacity), the honest consequence of surfacing
+this work rather than leaving it invisible.
+
+Original framing, kept for context: this was initially executed as "test
+execution time," the same bucket as the acceptance-test suite and the
+comparison writeup itself, done before US-PLT-16/17's destructive tests so
+the "normal/moderate load" baseline reflects steady state, not a
+just-recovered/just-rolled-out cluster — same "capture clean data before
+the environment gets perturbed" logic that put US-PLT-22 ahead of US-PLT-21,
+just without a hard deadline.
+
+## Review
+
+**Done — all three stages' P1-P3 baseline data now captured.**
+`evidence/baseline-comparison/US-PLT-22-stage1-metrics.md`,
+`US-PLT-25-stage2-metrics.md`, `US-PLT-26-stage3-metrics.md`. Headline
+findings across the exercise: the Argon2 CPU-saturation finding from Stage 1
+replicated in Stage 2 exactly as predicted; Stage 2 pays a real,
+architecture-driven memory/CPU overhead cost for decomposition even when
+latency doesn't show it; Stage 3 uncovered a genuine, previously-undiscovered
+production-readiness defect (Identity's OOMKill crash-loop under literally
+PMP 15.4's own "Normal load" scenario, violating NFR-08) that was
+root-caused to real code (not guessed), fixed with a concurrency semaphore
+rather than weakening Argon2's security parameters, and the fix's own
+side-effect (severe queuing latency, not a crash) was then measured and
+reported rather than declared "done" after the crash stopped. This whole
+arc — real bug found via formal load testing, root-caused, fixed correctly,
+re-measured, side-effect of the fix also reported honestly — is exactly
+what this kind of testing exists to produce, and is strong report material
+in its own right, not just baseline numbers for a comparison table.
+
+Next: US-PLT-16 (self-healing) and US-PLT-17 (rolling update/rollback),
+both against the now-more-battle-tested Kubernetes cluster.
 
 ## Prep done already
 - [x] Renamed `tests/load/stage1-baseline-p1-p3.js` → `baseline-p1-p3.js`
       (`git mv`, history preserved) — script was always stage-neutral via
       `BASE_URL`, just misleadingly named. Updated references in
-      `US-PLT-22-runbook.md`, `US-PLT-22-stage1-metrics.md`.
+      `US-PLT-22-stage-1-runbook.md`, `US-PLT-22-stage1-metrics.md`.
 - [x] Checked Catalog HPA's current state before assuming a clean baseline:
       `kube_horizontalpodautoscaler_status_current_replicas{horizontalpodautoscaler="catalog-hpa"}`
       = **1** — clean, no leftover scale-up from US-PLT-15 testing.
@@ -25,19 +155,19 @@ logic that put US-PLT-22 ahead of US-PLT-21, just without a hard deadline.
       updates in place).
 
 ## Plan
-- [x] Stage 2 runbook (`deploy/baseline-vm/stage2-baseline-p1-p3-runbook.md`)
+- [x] Stage 2 runbook (`deploy/baseline-vm/US-PLT-25-stage-2-runbook.md`)
       written — reuses `grafana-dashboard-baseline.json` unchanged, plus an
       optional clean deployment-time re-measurement (Stage 2's US-PLT-21
       deploy included live bug debugging, so that elapsed time isn't a fair
       comparison number).
-- [x] Stage 3 runbook (`deploy/kubernetes/stage3-baseline-p1-p3-runbook.md`)
+- [x] Stage 3 runbook (`deploy/kubernetes/US-PLT-26-stage-3-runbook.md`)
       written — targets `http://172.16.200.20:30080` (Ingress), reuses the
       now-fixed `grafana-dashboard.json`. Explicit note: unlike Stage 1/2,
       Catalog has an HPA - if P3's 25 VUs pushes it to scale, that's real
       Stage 3 behavior to record, not a confound to suppress or avoid.
 - [ ] Evidence: `evidence/baseline-comparison/{stage2,stage3}-p1-p3/`, same
       `{p1,p2,p3}-run/` substructure as Stage 1's.
-- [x] Stage 2 writeup: `US-PLT-22-stage2-metrics.md` done. Real findings:
+- [x] Stage 2 writeup: `US-PLT-25-stage2-metrics.md` done. Real findings:
       Argon2 CPU-saturation finding replicates in Stage 2 (P2, same as
       Stage 1); idle/baseline memory measurably higher at every load level
       (more processes); P3's raw CPU ~3.5x Stage 1's for identical
@@ -83,10 +213,33 @@ logic that put US-PLT-22 ahead of US-PLT-21, just without a hard deadline.
   GPU/ASIC brute-force resistance), not just an infra tweak.
   User applying the fix and re-running all 3 P2 repeats fresh (run1's data
   is invalid - crash-loop artifact, not real measurement).
-- [ ] Stage 3 P2 x3 (re-run pending, post-fix) and P3 x3 (not started).
-- [ ] Stage 3 writeup: `US-PLT-22-stage3-metrics.md` (pending all runs) -
-      must include the OOMKill finding prominently, same as Stage 2's
-      hardware-topology caveat was surfaced up top, not buried.
+- [x] Semaphore fix (`threading.Semaphore(4)` around Argon2 calls in
+      `apps/services/identity/app/core/security.py`) confirmed with user
+      via AskUserQuestion after the first fix (raising memory 256Mi->512Mi
+      alone) was tested and shown insufficient - pod OOMKilled again at
+      512Mi, proving unbounded concurrency was the real problem, not
+      headroom. 11 identity tests pass; verified live with a 6-concurrent
+      curl burst (all 200, memory stayed ~62Mi) before re-running k6.
+      Committed (af12e77), rebuilt/pushed `identity:0.1.1-af12e77`,
+      redeployed, confirmed 0 restarts.
+- [x] Stage 3 P2 x3 (post-fix) and P3 x3 done. **Real, non-obvious result:
+      fixing the crash didn't make P2 normal - it traded a total outage
+      for severe queuing latency.** RPS collapsed to 2.23 (vs Stage 1's
+      12.43), p95 hit 11 seconds (max 15.8s), 0% errors throughout.
+      `kubectl top pods` showed identity at 301m CPU (at its 300m limit)
+      while `kubectl top nodes` showed the cluster at only 8-22%
+      utilized - a per-pod CPU-limit bottleneck coexisting with abundant
+      idle cluster capacity, not a capacity problem. Directly validates
+      the earlier HPA-for-Identity discussion (user's question) with real
+      data rather than leaving it purely hypothetical.
+      P3: Catalog HPA genuinely scaled 1->3 during the run (Grafana +
+      `kubectl get hpa -w` both confirm) - recorded as real Stage 3
+      elasticity, not suppressed, per the runbook's own instruction.
+      P1/P3 both track Stage 1/2 closely; Stage 3 doesn't show Stage 2's
+      P1 outlier-tax problem at all.
+- [x] Stage 3 writeup: `US-PLT-26-stage3-metrics.md` done - OOMKill finding
+      and the post-fix CPU-limit finding both surfaced prominently up top,
+      same treatment as Stage 2's hardware-topology caveat.
       Full three-way comparison analysis (PMP 17.4) deferred to
       report-drafting time, not done here.
 - [ ] Update `MEMORY.md` once both stages are captured.

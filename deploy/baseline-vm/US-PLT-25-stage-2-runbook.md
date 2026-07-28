@@ -1,4 +1,4 @@
-# Stage 2 baseline comparison metrics (P1-P3)
+# US-PLT-25 Runbook: Stage 2 baseline comparison metrics (P1-P3)
 
 Target: `vm-baseline-app` (172.16.200.24), Stage 2 Compose stack (already
 deployed, US-PLT-21). Load generator: your laptop, same k6 script as

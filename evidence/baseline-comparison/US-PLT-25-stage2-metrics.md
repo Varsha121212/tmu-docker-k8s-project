@@ -1,4 +1,4 @@
-# Stage 2 baseline comparison metrics
+# US-PLT-25: Stage 2 baseline comparison metrics
 
 **Captured:** 28 Jul 2026, against `vm-baseline-app` (172.16.200.24), Stage 2
 Compose stack (US-PLT-21). Deployed version: five backend services at
