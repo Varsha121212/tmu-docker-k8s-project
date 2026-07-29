@@ -32,13 +32,48 @@ introduced a redundant version channel (`ARG`→`ENV`) alongside
       unbroken log, `kubectl rollout status`/`rollout history` for direct
       pass/fail signals, and an explicit flag about the manifest/live-state
       drift `rollout undo` leaves behind.
-- [ ] User executes the runbook (commit → build/push → sync → rollout →
-      rollback), per the established collaboration pattern.
-- [ ] Evidence saved under `evidence/rolling-update/`.
-- [ ] `sprint-plan.md` and `MEMORY.md` updated once run and verified.
+- [x] User executed the runbook (commit → build/push → sync → rollout →
+      rollback).
+- [x] Evidence saved under `evidence/rolling-update/`.
+- [x] `sprint-plan.md` updated.
 
 ## Review
-(Pending execution.)
+
+**Done and verified.** Catalog rolled `0.1.1-a08a02d` → `0.2.0-9bfb373` via
+`kubectl apply -f 22-catalog.yaml`, confirmed via `kubectl rollout status`
+("successfully rolled out") and `kubectl get pods -o jsonpath` showing the
+new image on the only Ready pod. `kubectl rollout undo` then reverted to
+`0.1.1-a08a02d`, confirmed the same way. Both ACs met.
+
+**Honest correction, then root-caused and fixed:** the runbook predicted
+zero failed requests given `maxUnavailable:0`; the actual log showed 3
+failed requests total (1 during the rollout, 2 during the rollback), each
+an isolated few-second blip, not a sustained outage — so both ACs ("no
+*sustained* outage") still passed on the original run, but the "zero
+failures" framing was wrong. Checked directly against the Ingress
+controller's own logs (not just theorized): **confirmed** — three
+`connect() failed (111: Connection refused)` errors against a pod that had
+already stopped accepting connections before its removal finished
+propagating to nginx. Added a `lifecycle.preStop: sleep 5` hook to
+`22-catalog.yaml` and re-ran the full rollout/rollback cycle to verify:
+failures dropped from 3 to 1, and the surviving failure was confirmed (via
+Ingress logs again) to be on the leg that structurally couldn't have the
+fix yet (the old `0.1.1` pod being replaced doesn't carry `preStop` in its
+own template) — the leg that *did* have the fix (`0.2.0`'s pod, torn down
+during the second rollback) showed zero failures despite a visibly longer
+(~6-7s vs ~2s) teardown, matching the 5s sleep taking effect.
+
+**Deliberate open item:** `22-catalog.yaml` still declares `0.2.0-9bfb373`
+while the live Deployment is back on `0.1.1-a08a02d` (post Part-J rollback)
+— user's explicit choice to leave the manifest as "the target to
+re-promote to" rather than edit it back to match live state. Flagged
+prominently in the metrics write-up so it isn't silently forgotten and
+someone doesn't `kubectl apply` this file later without checking what it'll
+actually do.
+
+Full write-up: `evidence/rolling-update/US-PLT-17-rolling-update-metrics.md`.
+`documents/backlog/sprint-plan.md` updated — **Period 5 (Gate 6) is now
+fully complete, 19/19 points, all 6 stories verified.** `MEMORY.md` updated.
 
 ---
 

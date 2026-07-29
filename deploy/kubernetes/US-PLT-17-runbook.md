@@ -219,3 +219,89 @@ from Part E, `kubectl rollout history` output, and a short
 `US-PLT-17-rolling-update-metrics.md` write-up (same shape as
 `US-PLT-16-self-healing-metrics.md`) — AC#1 and AC#2 each stated as
 pass/fail with the log evidence backing each.
+
+---
+
+## Addendum: `preStop` hardening (added after the first real run)
+
+The first execution of Parts A-I passed both ACs, but the availability log
+showed 3 isolated failed requests (1 during the rollout, 2 during the
+rollback) rather than the predicted zero. Checked directly against the
+Ingress controller's own logs
+(`kubectl logs -n ingress-nginx -l app.kubernetes.io/component=controller`):
+the rollback blip is **confirmed** — three `connect() failed (111:
+Connection refused)` errors, all against the pod that had just been
+terminated, meaning nginx's own upstream list hadn't yet caught up with
+that pod's removal. `22-catalog.yaml` gained a `lifecycle.preStop` hook
+(`sleep 5`) to close this gap — it delays SIGTERM to the app process just
+long enough for the Endpoints removal to finish propagating, so the
+terminating pod keeps draining in-flight connections during that window
+instead of refusing them outright.
+
+**Important: this fix only takes effect on a pod that already has it in
+its own template.** The upcoming rollout (`0.1.1`, no `preStop`, currently
+live → `0.2.0`, has `preStop`) will still show the *old* bug pattern on
+that leg, because the pod being torn down (`0.1.1`) doesn't have the hook.
+The fix is only actually exercised the next time a pod that already has
+`preStop` gets terminated — i.e. the rollback that follows.
+
+### Part J — apply, then roll back again, to actually exercise the fix
+
+Run **on your laptop**, from the repo root:
+```sh
+git add deploy/kubernetes/22-catalog.yaml
+git commit -m "fix: add preStop drain hook to catalog to close a confirmed connection-refused gap"
+scp -r deploy/kubernetes/. student@172.16.200.20:~/deploy-kubernetes/
+```
+
+Run **on `vm-master`**, inside `~/deploy-kubernetes` — start a fresh
+availability-check log covering both legs:
+```sh
+mkdir -p evidence/rolling-update
+```
+(On your laptop, in its own terminal, same as Part D:)
+```sh
+while true; do
+  ts=$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)
+  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 \
+    http://172.16.200.20:30080/api/books/health/ready)
+  echo "$ts $code"
+  sleep 1
+done | tee evidence/rolling-update/US-PLT-17-prestop-verify.log
+```
+
+Leg 1 — apply the `preStop`-carrying manifest (expect the same old
+`Connection refused` pattern here, since the pod being killed is the
+current `0.1.1` one without the hook — this leg is not the test):
+```sh
+kubectl apply -f 22-catalog.yaml
+kubectl rollout status deployment/catalog -n bookstore --timeout=120s
+kubectl get pods -n bookstore -l app=catalog -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.containers[0].image}{"\n"}{end}'
+```
+
+Leg 2 — **this is the real test.** Roll back again — this terminates the
+`0.2.0` pod that *does* have `preStop`:
+```sh
+kubectl rollout undo deployment/catalog -n bookstore
+kubectl rollout status deployment/catalog -n bookstore --timeout=120s
+kubectl get pods -n bookstore -l app=catalog -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.containers[0].image}{"\n"}{end}'
+```
+
+Stop the availability-check loop, then compare:
+```sh
+grep -v ' 200$' evidence/rolling-update/US-PLT-17-prestop-verify.log
+```
+If Leg 2's portion of the log (timestamps after the `rollout undo`) shows
+zero failures where the original run showed 2, that's confirmation the fix
+works. If it still shows failures, check the Ingress controller's logs
+again the same way as before — `Connection refused` would mean the fix
+didn't close the gap (5s wasn't enough, or another mechanism is at play);
+a different error would point somewhere new. Either way, update
+`US-PLT-17-rolling-update-metrics.md` with the result rather than leaving
+the original "3 failures" finding as the last word without noting whether
+the follow-up fix actually worked.
+
+Note: after Part J, the live image is back on `0.1.1-a08a02d` again (Leg 2
+is a rollback) — the same manifest/live-state drift from Part H applies
+again, now with `preStop` included in what the manifest declares either
+way.

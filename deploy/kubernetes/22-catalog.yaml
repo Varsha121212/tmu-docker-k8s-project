@@ -14,9 +14,13 @@
 # cluster default. At replicas:1, the default (25% of 1, rounded) already
 # computes to the same maxSurge:1/maxUnavailable:0 - pinning it here just
 # makes the "no sustained outage" guarantee readable without a reader
-# having to redo that rounding math themselves. maxUnavailable:0 is the
-# part that actually matters: the old pod isn't terminated until the new
-# one is Ready, so a single-replica Deployment still rolls with zero gap.
+# having to redo that rounding math themselves. maxUnavailable:0 guarantees
+# the new pod is Ready before the old one is marked for termination, but
+# that alone isn't sufficient for zero request loss - see the `preStop`
+# hook below, added after a real rollout/rollback run showed a handful of
+# `Connection refused` errors (confirmed in the Ingress controller's own
+# logs) against a pod that had already stopped accepting connections
+# before Kubernetes/nginx finished propagating its removal.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -40,9 +44,21 @@ spec:
     spec:
       containers:
         - name: catalog
-          image: 172.16.200.23:5000/bookstore/catalog:0.1.1-a08a02d
+          image: 172.16.200.23:5000/bookstore/catalog:0.2.0-9bfb373
           ports:
             - containerPort: 8000
+          lifecycle:
+            preStop:
+              exec:
+                # Delays SIGTERM to the app process, not the pod's actual
+                # removal from the Service - the container keeps accepting/
+                # draining in-flight connections during this window while
+                # the Endpoints removal propagates to kube-proxy/Ingress.
+                # 5s comfortably covers the gap observed in practice (the
+                # confirmed failures above cleared within ~1-2s of the pod
+                # starting to terminate); default terminationGracePeriodSeconds
+                # (30s) already covers this sleep with room to spare.
+                command: ["sh", "-c", "sleep 5"]
           envFrom:
             - secretRef:
                 name: catalog-secrets
