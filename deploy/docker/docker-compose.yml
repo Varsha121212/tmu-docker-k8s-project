@@ -48,7 +48,8 @@ services:
 
   migrate-identity:
     build: ../../apps/services/identity
-    image: bookstore/identity:${IMAGE_TAG}
+    # Own tag var, not ${IMAGE_TAG} - see identity's own comment below.
+    image: bookstore/identity:${IDENTITY_IMAGE_TAG}
     command: ["alembic", "upgrade", "head"]
     environment:
       DATABASE_URL: postgresql+psycopg://identity_app:${IDENTITY_APP_PASSWORD}@postgres:5432/bookstore
@@ -131,7 +132,15 @@ services:
 
   identity:
     build: ../../apps/services/identity
-    image: bookstore/identity:${IMAGE_TAG}
+    # Own tag var, independent of the other four backend services'
+    # ${IMAGE_TAG} - needed so Identity alone can run a patched version
+    # (e.g. 0.1.1-af12e77, the OOMKill/semaphore fix from US-PLT-26) for a
+    # like-for-like comparison against Stage 3, without forcing every other
+    # service onto that same tag. Same single-shared-tag fix already applied
+    # to frontend (${FRONTEND_IMAGE_TAG}) - Kubernetes already gives every
+    # service its own tag per-manifest (deploy/kubernetes/*.yaml), this
+    # brings Compose in line with that instead of a local retag workaround.
+    image: bookstore/identity:${IDENTITY_IMAGE_TAG}
     environment:
       DATABASE_URL: postgresql+psycopg://identity_app:${IDENTITY_APP_PASSWORD}@postgres:5432/bookstore
       MIGRATION_DATABASE_URL: postgresql+psycopg://identity_migrator:${IDENTITY_MIGRATOR_PASSWORD}@postgres:5432/bookstore

@@ -4,6 +4,20 @@
 Compose stack (US-PLT-21). Deployed version: five backend services at
 `0.1.1-a08a02d`, frontend at `0.0.0-57a1e9e`.
 
+**Identity redeployed 31 Jul 2026:** Identity was subsequently updated to
+`0.1.1-af12e77` — the same OOMKill/semaphore-fixed image Stage 3 runs
+(`docker-compose.yml`'s new `IDENTITY_IMAGE_TAG` variable, one service
+recreated, nothing else on the stack touched or reseeded). P2 was re-run 3x
+against the patched image
+(`evidence/baseline-comparison/stage2-p1-p3/p2-run-identity-postfix/`) and
+came out statistically indistinguishable from the figures below (RPS 8.25
+vs. 8.31, avg latency 806.93ms vs. 793.61ms, p95 2150.19ms vs. 2129.14ms,
+0% errors both times) — Compose has no per-container CPU limit, so the
+semaphore never bound anything beyond the same 2 vCPU ceiling that was
+already saturated pre-fix. The P1/P2/P3 table below is therefore retained
+as-is; **Identity's currently-deployed version is `0.1.1-af12e77`**, closing
+the version asymmetry against Stage 3 flagged in `US-PLT-27`.
+
 ## Deployment/setup time
 
 **42 seconds** (`docker compose down` → timed `up` → all 8 containers

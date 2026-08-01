@@ -1,3 +1,238 @@
+# Post-Gate-6 addendum: Stage 2 Identity redeploy + P2 re-measurement
+
+**Story:** Close the Identity code-version asymmetry `US-PLT-27` flagged
+between Stage 2 and Stage 3's P2 data, so the Stage 2-vs-3 P2 comparison in
+the final report is genuinely like-for-like rather than confounded by one
+stage running pre-fix code.
+
+**Traces to:** `US-PLT-27-comparison-analysis.md` §1.2/§6 (open item),
+`US-PLT-28` §9.4 (future work item). Real work performed after Period 5
+(Gate 6) was already marked complete — no formal story number assigned yet.
+
+## Plan
+- [x] `deploy/docker/docker-compose.yml` — added `IDENTITY_IMAGE_TAG`
+      (mirrors the existing `FRONTEND_IMAGE_TAG` precedent), so Identity
+      alone can run a different tag than the other four backend services.
+- [x] Commands given for user to run: sync compose file to
+      `vm-baseline-app`, add `IDENTITY_IMAGE_TAG=0.1.1-af12e77` to `.env`,
+      pull/retag the image (already built/pushed during `US-PLT-26`),
+      `docker compose up -d identity` (only Identity + its migration job
+      recreated, nothing else touched or reseeded).
+- [x] User ran P2 3x against the patched image, evidence saved to
+      `evidence/baseline-comparison/stage2-p1-p3/p2-run-identity-postfix/`.
+- [x] Compared new numbers against the original pre-fix P2 figures: RPS 8.25
+      vs 8.31, avg 806.93ms vs 793.61ms, p95 2150.19ms vs 2129.14ms, 0%
+      errors both — statistically indistinguishable.
+- [x] User's explicit choice: keep the original P2 figures as reported
+      (not worth a table swap for a difference this small), but disclose
+      the version patch everywhere Identity's version is cited — raised and
+      resolved a real correctness concern (see `MEMORY.md`, 31 Jul entry)
+      about not silently presenting the new run as if it were the original.
+- [x] `US-PLT-25-stage2-metrics.md` — version note added, numbers unchanged.
+- [x] `US-PLT-27-comparison-analysis.md` — §1.2, §3.1, §3.3, §4 Q6, §6
+      updated: asymmetry marked resolved, P2 gap now explained as Stage 3's
+      CPU-limit configuration rather than a code-version confound.
+- [x] `documents/report/US-PLT-28-final-report-draft.md` — matching updates
+      (Executive Summary, OBJ-08 table, §7.2, §8.1, §8.4, §8.5 Q6, §9.2);
+      "re-measure Stage 2 P2" removed from §9.4 Future Work (done).
+- [x] `MEMORY.md` updated.
+
+## Review
+
+**Done and verified.** The re-measurement itself is a genuine finding, not
+just a formality: it confirms the P2 throughput/latency gap between Stage 2
+and Stage 3 traces to Stage 3's per-pod 300m CPU limit interacting with the
+concurrency-cap fix, not to the fix itself — Stage 2 ran the identical fix
+under identical load with no comparable cost, since Compose enforces no
+per-container CPU limit for the cap to collide with. This resolves §1.2 of
+`US-PLT-27` and the matching open item in the final report.
+
+Not yet done: formalizing this as a numbered backlog story
+(`user-stories.md`/`sprint-plan.md`) if the team wants Period 6 tracked
+explicitly — flagged, not actioned, since it wasn't asked for.
+
+---
+
+# US-PLT-28: Final academic report draft
+
+**Story:** As the project team, I want a complete draft of the final
+academic report assembled from the project's actual evidence trail, so
+that Gate 6's "complete report draft" milestone and OBJ-09 are met with a
+document that reflects what actually happened, not a retrospectively
+sanitized success narrative.
+
+**Traces to:** D10, OBJ-09, PMP §7.2 (Gate 6 schedule line), Gate 7 (later,
+separate scope). Depends on US-PLT-27 (done) and, practically, on
+AT-01–AT-12 (still not a backlog story). **Points:** 8 — largest in the
+backlog, flagged as a split candidate; delivered as one continuous pass per
+user's own pacing choice.
+
+## Plan
+- [x] Clarified four open decisions with the user before writing anything
+      (AskUserQuestion): output format (Markdown draft first, .docx
+      transcription later), author names/student IDs (leave placeholders —
+      can't fabricate for an academic submission), academic citations
+      (leave numbered placeholder slots — can't fabricate sources), pacing
+      (one continuous pass across all chapters).
+- [x] Extracted `CN8001_report_template.docx`'s exact required structure,
+      formatting rules (Heading 1/2/3, Calibri 11, 1.5 spacing,
+      chapter.section figure/table numbering, 40-page main-body limit),
+      and citation-order requirement directly from the `.docx` XML (grep
+      can't reach binary files).
+- [x] Extracted PMP §17.1/17.2/17.4, BRD's full objectives/success-criteria/
+      requirements tables, and SDD's full design/ADR content the same way,
+      to ground every chapter in the actual accepted project documents
+      rather than a paraphrase.
+- [x] Read the remainder of `MEMORY.md` (offset 899 through end, ~1,400
+      lines not yet in context this session) end to end, plus
+      `tasks/lessons.md` in full, to build a complete defect inventory
+      before writing the Post Analysis chapter — not just the five defect
+      categories AC#1 names as a minimum.
+- [x] Drafted all chapters per the template's structure: front matter
+      (title/scope-note/executive-summary/acknowledgements/certification/
+      TOC), Introduction, Objectives, Background, Theory and Design,
+      Alternative Designs, Measurement and Testing Procedures, Measurement
+      Results, Post Analysis, Conclusions, Appendices, References.
+- [x] Verified every quantitative claim in the draft traces to a real
+      evidence artifact already in `evidence/` — no invented, estimated,
+      or rounded-for-narrative-convenience figures (AC#2).
+- [x] Built a 13-entry defect log (§8.6) covering at minimum the five
+      US-PLT-20 VM bugs, the frontend healthcheck IPv6 bug, the Argon2
+      CPU-saturation finding, the Identity OOMKill/semaphore fix and its
+      CPU-limit second-order finding, and the rolling-update `Connection
+      refused`/`preStop` fix (AC#1's stated minimum), plus additional
+      defects (Trivy CVE risk acceptance, containerd schema mismatch, the
+      Kubernetes frontend crash-loop, the seed-job race condition)
+      referenced in Appendix A.
+- [x] Stated the report's own scope explicitly (Report Scope Note,
+      up front): written report + evidence appendices in scope; live
+      presentation delivery, the demo switch-over script pair, and Gate 7's
+      correction pass explicitly out of scope (AC#3).
+- [x] `documents/report/US-PLT-28-final-report-draft.md` written (~11,400
+      words).
+- [x] Cleaned up scratch `.docx`-extraction text files from `documents/`
+      (should have used the scratchpad directory — corrected before they
+      were left behind).
+- [x] `sprint-plan.md` updated (status table, Period 5 update note,
+      capacity check, cross-period summary table — Period 5 now fully
+      complete).
+- [x] `MEMORY.md` updated.
+
+## Review
+
+**Done and verified against all three acceptance criteria.** The draft is
+markdown-first (per user's choice), structured to match
+`CN8001_report_template.docx` exactly, with a formatting note at the top
+flagging the still-outstanding .docx transcription pass as a distinct,
+later step — not silently implied as already done.
+
+Two real gaps were deliberately left visible rather than quietly filled:
+**author names/student IDs and academic citations remain marked
+placeholders** — the BRD/PMP's own placeholder convention was reused for
+names, and numbered `[1]`–`[5]` citation slots with explicit `TODO` markers
+were used for sources, since inventing either would be fabrication in an
+academic submission, not a shortcut. Both were the user's own explicit
+choice when asked, not a default picked to fill it fastest.
+
+Cross-checking the whole project's `MEMORY.md` history (not just the most
+recent stories still in this session's active context) against AC#1's
+"at minimum" defect list surfaced that the minimum list itself undersells
+how many real defects this project actually found and fixed — the final
+defect log (§8.6) has 13 entries, plus several more referenced in
+Appendix A, everything traced to a dated `MEMORY.md` entry or an
+`evidence/` artifact.
+
+Full draft: `documents/report/US-PLT-28-final-report-draft.md`.
+`documents/backlog/sprint-plan.md` updated — **Period 5 (Gate 6) is now
+fully complete, 30/30 committed points, all 8 stories verified.** The
+period's own final overcommit ratio (~2.0–3.0x against its 10–15 point
+capacity range) is reported as-is in the sprint plan rather than smoothed
+over now that the work is done — consistent with this project's standing
+practice of treating the sprint plan as an honest signal, not a flattering
+retrospective. `MEMORY.md` updated.
+
+---
+
+# US-PLT-27: Stage 1-vs-2-vs-3 comparison analysis
+
+**Story:** As the project team, I want the three stages' already-captured
+P1–P3 evidence (US-PLT-22/25/26) synthesized into the deployment-model
+comparison PMP §17.4 requires, so that the project's central research
+question is actually answered in writing, not left as three separate
+evidence folders nobody has cross-read.
+
+**Traces to:** PMP §17.4, D9, BO-06, Gate 6. Depends on US-PLT-22/25/26 (all
+done). **Points:** 3 — synthesis/analytical writing only, no new test
+execution or infrastructure work.
+
+## Plan
+- [x] Read PMP §17.1 (six comparison questions), §17.2 (metrics table),
+      §17.4 (fairness controls) directly from the `.docx` (grep can't reach
+      binary files) to work from the exact required wording, not a
+      paraphrase.
+- [x] Cross-read all five source evidence files (US-PLT-16/17/22/25/26) end
+      to end before writing anything.
+- [x] Cross-check fairness controls (AC#1) across all three stages
+      explicitly, rather than assuming US-PLT-22/25/26 each independently
+      satisfying PMP §17.4 within their own stage means the controls held
+      *across* stages too.
+- [x] Write Stage 1-vs-2 as "a complete deployment-model comparison" (AC#2).
+- [x] Write Stage 2-vs-3 separately, isolating orchestration-only signals
+      (HPA, self-healing, rolling update) from resource-overhead signals
+      (AC#3).
+- [x] State only claims the data actually supports; explicitly list claims
+      NOT made, per PMP §17.4's "don't claim Kubernetes is faster unless the
+      data shows it" instruction (AC#4).
+- [x] `evidence/baseline-comparison/US-PLT-27-comparison-analysis.md`
+      written.
+- [x] `sprint-plan.md` updated (status table, Period 5 update note, capacity
+      check, cross-period summary table).
+- [x] `MEMORY.md` updated.
+
+## Review
+
+**Done and verified — no new test execution, all findings traced to
+already-captured evidence.** Cross-checking the fairness controls (rather
+than assuming them) surfaced two real, previously-undocumented gaps:
+
+1. **Stage 2's Identity image was never redeployed with the OOMKill fix**
+   found during US-PLT-26. Stage 2's P2 dataset (`0.1.1-a08a02d`) reflects
+   the pre-fix, unbounded-concurrency Argon2 code; Stage 3's P2 dataset is
+   entirely post-fix (`0.1.1-af12e77`, semaphore-capped). This means the
+   Stage 2-vs-3 P2 comparison (Stage 2 far outperforms Stage 3 on RPS/
+   latency) is **not** a clean orchestration-only comparison — a real share
+   of that gap is the semaphore fix's own throughput trade-off, measured
+   against a Stage 2 baseline that was never re-run under the same fix.
+   Flagged explicitly in the analysis rather than presented as a clean
+   Stage-2-wins-P2 result.
+2. **Stage 3's deployment/setup time was never captured** at all (no
+   re-timed teardown/redeploy was performed, unlike Stage 1's 4m30s and
+   Stage 2's 42s) — the three-way deployment-time comparison PMP §17.2 asks
+   for is genuinely two-way in the evidence that exists, not three-way.
+   Left as an open gap, not filled with an estimate.
+
+One genuine operational-value finding worth carrying into the final report
+(US-PLT-28): **Kubernetes' per-pod resource limits — a form of overhead —
+are what surfaced the Identity OOMKill defect during formal testing at
+all.** Stage 2 ran the identical unbounded-memory-growth bug under the
+identical P2 load and did not crash, because Compose's config in this
+project enforces no equivalent per-container memory ceiling; it degraded as
+CPU saturation instead. Reported as a real benefit of orchestration
+strictness, with its own throughput cost (§3.1/§3.3 of the write-up)
+reported alongside it, not hidden.
+
+Per PMP §17.4's explicit instruction, **no "Kubernetes is faster" claim is
+made anywhere in the write-up** — P1/P3 favor Stage 3, P2 favors Stage 2 (with
+the code-version caveat above), and a dedicated section lists exactly which
+claims the data does and does not support.
+
+Full write-up: `evidence/baseline-comparison/US-PLT-27-comparison-analysis.md`.
+`documents/backlog/sprint-plan.md` updated — **Period 5 now 22/30 points,
+US-PLT-28 (final report draft) the only story remaining.** `MEMORY.md`
+updated.
+
+---
+
 # US-PLT-17: Rolling update and rollback
 
 **Story:** As a system administrator, I want to deploy a new image version
