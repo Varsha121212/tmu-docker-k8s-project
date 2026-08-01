@@ -1,6 +1,6 @@
 # US-PLT-10 diagnostic manifest — Calico cross-node networking + CoreDNS
 # Service-name resolution validation. Not part of the application; apply,
-# check, then delete (see infrastructure/kubeadm/US-PLT-10-runbook.md).
+# check, then delete (see documents/runbooks/stage-3/US-PLT-10-runbook.md).
 apiVersion: v1
 kind: Pod
 metadata:

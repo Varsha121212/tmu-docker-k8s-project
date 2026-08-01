@@ -1,7 +1,7 @@
 # US-PLT-12 diagnostic manifest — proves the NFS-backed PV/PVC mechanism
 # (mount, write/read, and data survival across pod reschedule) before the
 # real PostgreSQL/Redis PVCs exist. Not part of the application; apply,
-# check, then delete (see infrastructure/nfs/US-PLT-12-runbook.md).
+# check, then delete (see documents/runbooks/stage-3/US-PLT-12-runbook.md).
 apiVersion: v1
 kind: PersistentVolume
 metadata:

@@ -2,7 +2,7 @@
 # registry-monitoring (172.16.200.23) - outside the kubeadm cluster (SDD
 # 10.1), so every Kubernetes-side target below is reached through a
 # NodePort or a node's own real IP, not a ClusterIP/pod IP (no route to
-# either from off-cluster). See deploy/kubernetes/US-PLT-18-runbook.md for
+# either from off-cluster). See documents/runbooks/stage-3/US-PLT-18-runbook.md for
 # the full reasoning.
 global:
   scrape_interval: 15s

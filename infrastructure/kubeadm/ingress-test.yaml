@@ -1,7 +1,7 @@
 # US-PLT-11 placeholder — proves the Ingress path mechanism (external HTTP
 # over the VPN -> ingress-nginx -> Service -> pod) before the real frontend
 # exists. Not part of the application; apply, check, then delete (see
-# infrastructure/kubeadm/US-PLT-11-runbook.md).
+# documents/runbooks/stage-3/US-PLT-11-runbook.md).
 apiVersion: apps/v1
 kind: Deployment
 metadata:

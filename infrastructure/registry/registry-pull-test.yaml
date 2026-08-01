@@ -2,7 +2,7 @@
 # works (containerd trust config on the node the scheduler picks, not
 # just wherever crictl pull was run manually). Not part of the
 # application; apply, check, then delete (see
-# infrastructure/registry/US-PLT-23-runbook.md, Part D step 2).
+# documents/runbooks/stage-3/US-PLT-23-runbook.md, Part D step 2).
 #
 # Replace <tag from Part B> with the real tag before applying.
 apiVersion: v1

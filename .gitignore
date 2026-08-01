@@ -2,6 +2,7 @@
 /documents
 .claudeignore
 MEMORY.md
+*.md
 
 # Python
 __pycache__/
